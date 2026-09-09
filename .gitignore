@@ -1,0 +1,29 @@
+# reference notebooks (kept locally, intentionally NOT part of this library)
+gen_codope_3def_260812.ipynb
+gen_codope_pairs_260812.ipynb
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+.venv/
+venv/
+
+# tests / tooling
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# local claude settings (permissions) stay on this machine
+.claude/
