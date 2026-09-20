@@ -15,7 +15,7 @@ from collections.abc import Sequence
 
 from pymatgen.core import Structure
 
-from codopex.symmetry import SiteInfo, site_table
+from codopex.symmetry import site_table
 from codopex.types import DefectType, Reaction
 
 SHELL_LABELS = {0: "nn", 1: "nnn"}  # first and second distance shell
@@ -46,7 +46,6 @@ def build_types(
     reactions: list[Reaction],
     site_symprec: float = 0.01,
     type_order: list[str] | None = None,
-    site_info: list[SiteInfo] | None = None,
 ) -> tuple[list[DefectType], list[dict[int, DefectType | None]]]:
     """Discover defect types from the pristine bulk.
 
@@ -58,8 +57,7 @@ def build_types(
     Canonical order: reactions in the order given; within a reaction, types
     in order of first occurrence along the bulk site list.  ``type_order``
     overrides the final ordering by type label (e.g. to reproduce the hand
-    ordering of an earlier study).  Pass ``site_info`` (the bulk site table)
-    to reuse an existing spglib analysis.
+    ordering of an earlier study).
 
     Returns
     -------
@@ -67,11 +65,7 @@ def build_types(
     type_by_reaction : per reaction index, a site-index -> DefectType map
         (None for sites that are not host sites of that reaction).
     """
-    reactions = dedupe_reactions(reactions)
-    if site_info is None:
-        info = site_table(bulk, symprec=site_symprec)
-    else:
-        info = site_info
+    info = site_table(bulk, symprec=site_symprec)
 
     # per reaction: site key -> first bulk index where it occurs
     first_site: list[dict[SiteKey, int]] = []

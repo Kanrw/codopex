@@ -34,7 +34,6 @@ from collections.abc import Sequence
 
 from codopex import engine
 from codopex.pipeline import SHELL_LABELS, shell_groups
-from codopex.symmetry import equivalent_atoms
 from codopex.types import (
     AllTriplesResult,
     PairsResult,
@@ -128,9 +127,6 @@ def generate_triples(
         "empty": [],
     }
 
-    # one spglib search on the pair base, reused by every reaction below
-    equiv = equivalent_atoms(base_pair, symprec=enum_symprec)
-
     complexes: dict[str, TripleComplex] = {}
     for r in jobs:
         host, dop = reactions[r]
@@ -140,9 +136,7 @@ def generate_triples(
                 {"reaction": f"{dop}@{host}", "n_configs": 0, "skipped_no_host": True}
             )
             continue
-        configs = engine.enumerate_substitutions(
-            base_pair, host, dop, symprec=enum_symprec, equiv=equiv
-        )
+        configs = engine.enumerate_substitutions(base_pair, host, dop, symprec=enum_symprec)
         stats["jobs"].append({"reaction": f"{dop}@{host}", "n_configs": len(configs)})
         for cfg in configs:
             t_c = site_type_maps[r][cfg.site_index]
@@ -163,7 +157,6 @@ def generate_triples(
                 d_ac=d_ac,
                 d_bc=d_bc,
                 degeneracy=cfg.degeneracy,
-                type_c=t_c,
             )
             complexes.setdefault(
                 key, TripleComplex(combo=key, pair=pair, type_c=t_c)

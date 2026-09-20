@@ -18,8 +18,6 @@ written here.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from codopex import engine
 from codopex.pipeline import (
     SHELL_LABELS,
@@ -48,7 +46,6 @@ def generate_pairs(
     dist_tol: float = 0.05,
     enum_symprec: float = 1e-3,
     site_symprec: float = 0.01,
-    center: Sequence[float] = CENTER,
     type_order: list[str] | None = None,
 ) -> PairsResult:
     """Generate nearest (and optionally next-nearest) defect-pair complexes.
@@ -71,8 +68,6 @@ def generate_pairs(
         (1e-3 matches the SAGAR engine of the original workflow).
     site_symprec : float
         Symmetry tolerance for pristine site-symmetry labels.
-    center : sequence of 3 floats
-        Supercell center used by the base-selection rule.
     type_order : optional list of type labels
         Override the canonical type ordering (order of the returned
         ``types`` and of combo components/parents).
@@ -83,13 +78,8 @@ def generate_pairs(
     """
     bulk = load_bulk(bulk)
     reactions = dedupe_reactions(list(reactions))
-    site_info = site_table(bulk, symprec=site_symprec)
     types, type_by_reaction = build_types(
-        bulk,
-        reactions,
-        site_symprec=site_symprec,
-        type_order=type_order,
-        site_info=site_info,
+        bulk, reactions, site_symprec=site_symprec, type_order=type_order
     )
     label_index = {t.label: t.index for t in types}
 
@@ -102,6 +92,7 @@ def generate_pairs(
     # enumeration tolerance).  This reproduces the base selection of the
     # original SAGAR workflow (verified against its saved base files) and
     # gives the most isolated defect position.
+    site_info = site_table(bulk, symprec=site_symprec)
     bases: dict[str, SingleDefectBase] = {}
     for t in types:
         members = [
@@ -111,11 +102,8 @@ def generate_pairs(
             and s.site_symmetry == t.site_symmetry
             and s.wyckoff == t.site_tag
         ]
-        if not members:
-            stats["single_defect"][t.label] = {"n_sites": 0}
-            continue
-        site = min(members, key=lambda i: fractional_distance_to(bulk[i].frac_coords, center))
-        d = fractional_distance_to(bulk[site].frac_coords, center)
+        site = min(members, key=lambda i: fractional_distance_to(bulk[i].frac_coords, CENTER))
+        d = fractional_distance_to(bulk[site].frac_coords, CENTER)
         structure = bulk.copy()
         structure.replace(site, t.dopant)
         bases[t.label] = SingleDefectBase(
@@ -123,7 +111,6 @@ def generate_pairs(
             dopant_site=site,
             distance_to_center=d,
             degeneracy=len(members),
-            config_index=members.index(site),  # ordinal within the class
         )
         stats["single_defect"][t.label] = {
             "n_sites": len(members),
@@ -209,7 +196,6 @@ def generate_pairs(
             reps.setdefault(cand.shell, cand)
         comp.shells = [
             PairShell(
-                shell=g,
                 label=SHELL_LABELS[g],
                 candidate=reps[g],
                 distance=reps[g].distance,

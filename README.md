@@ -44,8 +44,7 @@ pip install -e .          # library
 pip install -e ".[dev]"   # with test/lint tooling
 ```
 
-Requires Python ≥ 3.10, `pymatgen>=2024` and `numpy`.  `pandas` is an
-optional extra used only by `codopex.io.to_dataframe`.
+Requires Python ≥ 3.10, `pymatgen>=2024` and `numpy`.
 
 ## Quick start
 

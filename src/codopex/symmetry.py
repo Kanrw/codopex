@@ -72,11 +72,10 @@ def _dataset(structure: Structure, symprec: float):
     if isinstance(data, dict):
         return data
     # newer pymatgen returns a SpglibDataset-like object with attributes
-    get = lambda key: getattr(data, key, None)  # noqa: E731
     return {
-        "wyckoffs": get("wyckoffs"),
-        "site_symmetry_symbols": get("site_symmetry_symbols"),
-        "equivalent_atoms": get("equivalent_atoms"),
+        "wyckoffs": data.wyckoffs,
+        "site_symmetry_symbols": data.site_symmetry_symbols,
+        "equivalent_atoms": data.equivalent_atoms,
     }
 
 
@@ -125,18 +124,14 @@ def orbits_of(
     structure: Structure,
     species: Sequence[str] | None = None,
     symprec: float = 1e-3,
-    equiv: Sequence[int] | None = None,
 ) -> list[list[int]]:
     """Partition site indices into symmetry orbits.
 
     Only sites whose species are in ``species`` (or all sites if None) are
     kept.  Orbits are returned sorted by their smallest site index, which
     defines the deterministic configuration order of the enumeration engine.
-    Pass precomputed ``equiv`` (``equivalent_atoms`` of ``structure``) to skip
-    a repeated spglib search when grouping several species of one structure.
     """
-    if equiv is None:
-        equiv = equivalent_atoms(structure, symprec=symprec)
+    equiv = equivalent_atoms(structure, symprec=symprec)
     grouped: dict[int, list[int]] = {}
     for i, rep in enumerate(equiv):
         if species is not None and structure[i].species_string not in species:

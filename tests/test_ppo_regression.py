@@ -18,7 +18,7 @@ workflow (see ``tests/data/ppo/README.md`` for provenance):
 Parity contract: enumeration/classification/distance *values* are exact;
 the representative picked inside a distance shell is deterministic in
 codopex but may differ from the arbitrary SAGAR pick when several
-inequivalent configurations share the shell distance (see REGRESSION.md).
+inequivalent configurations share the shell distance (see docs/regression.md).
 """
 
 import os

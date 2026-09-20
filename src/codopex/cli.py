@@ -289,7 +289,3 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"codopex: error: {exc}", file=sys.stderr)
         return 1
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())

@@ -75,10 +75,6 @@ def write_structure(structure: Structure, path: str) -> str:
     return path
 
 
-def _shell_dir_name(label: str) -> str:
-    return label
-
-
 def export_pairs(
     result: PairsResult,
     out_root: str,
@@ -99,7 +95,7 @@ def export_pairs(
     for combo, comp in result.complexes.items():
         paths: list[str] = []
         for shell in comp.shells:
-            folder = os.path.join(out_root, combo, _shell_dir_name(shell.label))
+            folder = os.path.join(out_root, combo, shell.label)
             os.makedirs(folder, exist_ok=True)
             cand = shell.candidate
             p1 = write_structure(cand.structure, os.path.join(folder, f"POSCAR{cand.config_index}"))
@@ -129,7 +125,7 @@ def export_triples(
             cand = sel.candidate
             if cand is None:
                 continue
-            folder = os.path.join(out_root, combo, _shell_dir_name(sel.criterion))
+            folder = os.path.join(out_root, combo, sel.criterion)
             os.makedirs(folder, exist_ok=True)
             p1 = write_structure(cand.structure, os.path.join(folder, f"POSCAR{cand.config_index}"))
             p2 = write_structure(cand.structure, os.path.join(folder, "POSCAR"))
@@ -152,17 +148,6 @@ def write_rows_csv(rows: Sequence[dict], path: str) -> str:
         writer.writeheader()
         writer.writerows(rows)
     return path
-
-
-def to_dataframe(rows: Sequence[dict]):
-    """Return rows as a pandas DataFrame (pandas must be installed)."""
-    try:
-        import pandas as pd
-    except ImportError as exc:  # pragma: no cover
-        raise ImportError(
-            "pandas is required for to_dataframe(); install it or use write_rows_csv()"
-        ) from exc
-    return pd.DataFrame(rows)
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +209,6 @@ def _encode_pairs(result: PairsResult) -> dict:
                 "dopant_site": base.dopant_site,
                 "distance_to_center": base.distance_to_center,
                 "degeneracy": base.degeneracy,
-                "config_index": base.config_index,
             }
             for label, base in result.bases.items()
         },
@@ -248,7 +232,6 @@ def _encode_pairs(result: PairsResult) -> dict:
                 ],
                 "shells": [
                     {
-                        "shell": shell.shell,
                         "label": shell.label,
                         "candidate": _index_of(comp.candidates, shell.candidate),
                         "distance": shell.distance,
@@ -277,7 +260,6 @@ def _decode_pairs(data: dict) -> PairsResult:
             dopant_site=b["dopant_site"],
             distance_to_center=b["distance_to_center"],
             degeneracy=b["degeneracy"],
-            config_index=b["config_index"],
         )
         for label, b in data["bases"].items()
     }
@@ -297,7 +279,6 @@ def _decode_pairs(data: dict) -> PairsResult:
         ]
         shells = [
             PairShell(
-                shell=s["shell"],
                 label=s["label"],
                 candidate=candidates[s["candidate"]],
                 distance=s["distance"],
@@ -351,7 +332,6 @@ def _encode_triples(result: TriplesResult, include_pairs: bool = True) -> dict:
                         "d_ac": cand.d_ac,
                         "d_bc": cand.d_bc,
                         "degeneracy": cand.degeneracy,
-                        "type_c": cand.type_c.label,
                     }
                     for cand in tc.candidates
                 ],
@@ -391,7 +371,6 @@ def _decode_triples(data: dict, pairs: PairsResult | None = None) -> TriplesResu
                 d_ac=cd["d_ac"],
                 d_bc=cd["d_bc"],
                 degeneracy=cd["degeneracy"],
-                type_c=by_label[cd["type_c"]],
             )
             for cd in tc["candidates"]
         ]

@@ -86,7 +86,7 @@ def test_batch_save_load_round_trip(tmp_path):
 
     loaded = cp.io.load(str(path))
     assert isinstance(loaded, cp.AllTriplesResult)
-    assert loaded.pair_labels == batch.pair_labels
+    assert list(loaded.results) == list(batch.results)
     assert loaded.skipped == batch.skipped
     for parent in batch:
         assert set(loaded[parent].complexes) == set(batch[parent].complexes)
@@ -113,7 +113,7 @@ def test_save_rejects_other_objects(tmp_path):
 def test_generate_all_triples_matches_single_calls():
     pairs = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")], shells="nnn")
     batch = cp.generate_all_triples(pairs)
-    assert batch.pair_labels == sorted(pairs.complexes)
+    assert list(batch.results) == sorted(pairs.complexes)
     single = cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh")
     assert set(batch["Li_Na_Oh+Li_Na_Oh"].complexes) == set(single.complexes)
     assert batch.skipped == []

@@ -68,8 +68,6 @@ source = ["codopex"]
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
-    "if TYPE_CHECKING:",
-    "raise NotImplementedError",
 ]
 
 [tool.ruff]

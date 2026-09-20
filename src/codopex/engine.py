@@ -18,8 +18,6 @@ indices.  No files are written and no directory is changed.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from pymatgen.core import Structure
 
 from codopex.symmetry import orbits_of
@@ -31,7 +29,6 @@ def enumerate_substitutions(
     host: str,
     dopant: str,
     symprec: float = 1e-3,
-    equiv: Sequence[int] | None = None,
 ) -> list[SubstitutionConfig]:
     """Enumerate all inequivalent ways to substitute one ``host`` by ``dopant``.
 
@@ -47,9 +44,6 @@ def enumerate_substitutions(
         Symmetry tolerance (Angstrom) for the spglib space-group search.
         The default 1e-3 matches the SAGAR tolerance used by the original
         DefectMaker workflow.
-    equiv : optional sequence of int
-        Precomputed orbit representatives of ``base`` (``equivalent_atoms``),
-        to reuse one spglib search across several reactions on the same base.
 
     Returns
     -------
@@ -61,7 +55,7 @@ def enumerate_substitutions(
         raise ValueError(f"host element {host!r} not present in base structure")
 
     candidates: list[SubstitutionConfig] = []
-    for orbit in orbits_of(base, species=[host], symprec=symprec, equiv=equiv):
+    for orbit in orbits_of(base, species=[host], symprec=symprec):
         rep = orbit[0]  # smallest index = deterministic representative
         substituted = base.copy()
         substituted.replace(rep, dopant)

@@ -62,7 +62,6 @@ class SingleDefectBase:
     dopant_site: int  # index of the dopant atom in ``structure``
     distance_to_center: float  # periodic fractional distance to (0.5,0.5,0.5)
     degeneracy: int  # orbit size of the chosen host site in the bulk
-    config_index: int
 
 
 @dataclass
@@ -81,7 +80,6 @@ class PairCandidate:
 class PairShell:
     """One selected representative (shell "nn", "nnn", ...)."""
 
-    shell: int  # 0-based shell group
     label: str  # "nn", "nnn", ... (see shell_label())
     candidate: PairCandidate
     distance: float
@@ -116,7 +114,6 @@ class TripleCandidate:
     d_ac: float
     d_bc: float
     degeneracy: int
-    type_c: DefectType  # pristine type of the third dopant site
 
 
 @dataclass
@@ -171,9 +168,6 @@ class PairsResult:
     def type_labels(self) -> list[str]:
         return [t.label for t in self.types]
 
-    def complex_for(self, combo: str) -> PairComplex | None:
-        return self.complexes.get(combo)
-
 
 @dataclass
 class TriplesResult:
@@ -197,11 +191,6 @@ class AllTriplesResult:
     results: dict[str, TriplesResult]  # parent pair combo -> result
     skipped: list[str] = field(default_factory=list)
     """Parent pairs without a representative in the requested pair shell."""
-
-    @property
-    def pair_labels(self) -> list[str]:
-        """Parent pair combos that produced a result, in request order."""
-        return list(self.results)
 
     def __getitem__(self, pair: str) -> TriplesResult:
         return self.results[pair]
