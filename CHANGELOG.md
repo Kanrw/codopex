@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-20
+
 ### Added
 
 - Command-line interface: `codopex pairs`, `codopex triples` and
@@ -48,5 +50,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Regression suite against the original SAGAR workflow on the
   Pb3(PO4)2 Cu-S case (`tests/data/ppo`, see `docs/regression.md`).
 
-[Unreleased]: https://github.com/Kanrw/codopex/commits/main
-[0.1.0]: https://github.com/Kanrw/codopex/releases
+[Unreleased]: https://github.com/Kanrw/codopex/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Kanrw/codopex/releases/tag/v0.2.0
+[0.1.0]: https://github.com/Kanrw/codopex/releases/tag/v0.1.0

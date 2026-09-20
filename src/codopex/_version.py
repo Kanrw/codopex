@@ -4,4 +4,4 @@ Kept dependency-free so the build backend can read it statically
 (``[tool.setuptools.dynamic] version = {attr = "codopex._version.__version__"}``).
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
