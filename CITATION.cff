@@ -18,7 +18,7 @@ authors:
   - family-names: Zhao
     given-names: Yu-Jun
     affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
-version: 0.2.0
+version: 0.3.0
 date-released: 2026-09-20
 license: MIT
 repository-code: "https://github.com/Kanrw/codopex"
