@@ -29,13 +29,6 @@ and results can be saved/loaded as JSON to split the two phases across
 sessions or machines.  The same workflows are available from the command
 line (`codopex --help`).
 
-```text
-codopex 为您生成共掺杂缺陷复合体的不等价构型：
-第一阶段给定超胞与取代反应，生成全部缺陷对（最近邻，可选加次近邻）；
-第二阶段指定缺陷对并添加第三种掺杂，按 near A / near B / near both
-三种放置判据生成三缺陷复合体。纯 pymatgen 实现，无外部枚举器。
-```
-
 ![Physically guided workflow for constructing and screening co-doping configurations](docs/fig5-workflow.png)
 
 *The workflow codopex supports (Fig. 5 of the accompanying paper): (a) a
