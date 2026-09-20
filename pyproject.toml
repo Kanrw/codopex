@@ -83,7 +83,9 @@ select = ["E", "F", "W", "I", "UP", "B"]
 known-first-party = ["codopex", "helpers"]
 
 [tool.mypy]
-python_version = "3.10"
+# No fixed python_version: mypy then targets the interpreter running it.  A
+# pinned 3.10 target cannot parse the PEP 695 syntax used by current numpy
+# stubs (numpy/__init__.pyi) and aborts before checking any source file.
 files = ["src/codopex"]
 ignore_missing_imports = true
 check_untyped_defs = true
