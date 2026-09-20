@@ -49,15 +49,12 @@ def mirror_combos(result):
     return {
         c.combo
         for c in result.complexes.values()
-        if c.type_a.dopant == c.type_b.dopant
-        and c.type_a.site_symmetry == c.type_b.site_symmetry
+        if c.type_a.dopant == c.type_b.dopant and c.type_a.site_symmetry == c.type_b.site_symmetry
     }
 
 
 def orientation_match(ours, ref):
-    return (
-        abs(ours[0] - ref[0]) < 1e-3 and abs(ours[1] - ref[1]) < 1e-3
-    ) or (
+    return (abs(ours[0] - ref[0]) < 1e-3 and abs(ours[1] - ref[1]) < 1e-3) or (
         abs(ours[1] - ref[0]) < 1e-3 and abs(ours[0] - ref[1]) < 1e-3
     )
 
@@ -166,8 +163,7 @@ def test_triple_criteria_vs_sagar(pairs):
             # distance component (any orientation)
             variants = [sagar, (sagar[1], sagar[0])]
             assert any(
-                abs(our_vals[0] - v[0]) < 0.06 or abs(our_vals[1] - v[1]) < 0.06
-                for v in variants
+                abs(our_vals[0] - v[0]) < 0.06 or abs(our_vals[1] - v[1]) < 0.06 for v in variants
             ), row.combo
 
 
@@ -194,6 +190,4 @@ def test_positions_and_cell_never_change(pairs):
         for cand in comp.candidates:
             assert cand.structure.lattice == bulk.lattice
             for i in range(len(bulk)):
-                assert (
-                    cand.structure[i].frac_coords - bulk[i].frac_coords
-                ).max() < 1e-9
+                assert (cand.structure[i].frac_coords - bulk[i].frac_coords).max() < 1e-9

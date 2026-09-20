@@ -14,27 +14,9 @@ from pymatgen.core import Lattice, Structure
 
 import codopex as cp
 from codopex.pipeline import shell_groups
+from helpers import cubic_2x2x2, rocksalt_1x1x1, rocksalt_2x2x2
 
 matcher = StructureMatcher(primitive_cell=False, attempt_supercell=False)
-
-
-def cubic_2x2x2():
-    """Simple cubic lattice (a=4 A), 8 host atoms, one symmetry class."""
-    return Structure(Lattice.cubic(4.0), ["Na"] * 8,
-                     [[x / 2, y / 2, z / 2]
-                      for x in (0, 1) for y in (0, 1) for z in (0, 1)])
-
-
-def rocksalt_2x2x2():
-    """Rocksalt supercell: 64 atoms, Na and Cl each one symmetry class."""
-    base = Structure(Lattice.cubic(4.0),
-                     ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-    return base * [2, 2, 2]
-
-
-def rocksalt_1x1x1():
-    return Structure(Lattice.cubic(4.0),
-                     ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
 
 
 # ---------------------------------------------------------------------------
@@ -95,14 +77,11 @@ def test_pair_shells_are_neighbor_shells():
     assert labels[0] == "nn"
     assert labels == ["nn"] or labels == ["nn", "nnn"]
     assert all(
-        comp.shells[i].distance <= comp.shells[i + 1].distance
-        for i in range(len(comp.shells) - 1)
+        comp.shells[i].distance <= comp.shells[i + 1].distance for i in range(len(comp.shells) - 1)
     )
     # shell assignments are consistent with the shell-grouping algorithm
     by_d = sorted(comp.candidates, key=lambda c: c.distance)
-    assert [c.shell for c in by_d] == shell_groups(
-        [c.distance for c in by_d], 0.05
-    )
+    assert [c.shell for c in by_d] == shell_groups([c.distance for c in by_d], 0.05)
     assert len(comp.candidates) >= 2
 
 
@@ -194,8 +173,9 @@ def test_pair_must_exist():
 def test_deterministic():
     r1 = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")], shells="nnn")
     r2 = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")], shells="nnn")
-    assert [c.distance for c in r1.complexes["Li_Na_Oh+Li_Na_Oh"].candidates] == \
-           [c.distance for c in r2.complexes["Li_Na_Oh+Li_Na_Oh"].candidates]
+    assert [c.distance for c in r1.complexes["Li_Na_Oh+Li_Na_Oh"].candidates] == [
+        c.distance for c in r2.complexes["Li_Na_Oh+Li_Na_Oh"].candidates
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +198,38 @@ def test_classify_substitution_and_vacancy():
     )
     labels = [d.defect_name for d in cp.classify_defects(bulk, vac)]
     assert labels == ["v_Na_Oh"]
+
+
+def test_classify_uses_global_assignment():
+    """A greedy match would leave b2 and d2 unpaired (now an error); the
+    optimal assignment pairs both Na sites with the two defect Na sites."""
+    bulk = Structure(
+        Lattice.cubic(1.0),
+        ["Na", "Na", "Cl"],
+        [[0.51, 0.5, 0.5], [0.50, 0.51, 0.5], [0.0, 0.0, 0.0]],
+        validate_proximity=False,
+    )
+    defect = Structure(
+        Lattice.cubic(1.0),
+        ["Na", "Na", "Cl"],
+        [[0.50, 0.5, 0.5], [0.60, 0.5, 0.5], [0.0, 0.0, 0.0]],
+        validate_proximity=False,
+    )
+    # threshold 0.14 * (1/3)^(1/3) ~ 0.097 A: the direct greedy pick
+    # (b1-d1 = 0.01 A) leaves b2 0.1005 A from d2, just beyond the
+    # threshold, while the global pairing b1-d2 (0.09 A) + b2-d1 (0.01 A)
+    # keeps both matches
+    assert cp.classify_defects(bulk, defect, stol=0.14) == []
+
+
+def test_classify_rejects_interstitial_atoms():
+    """A site without a pristine counterpart is an error, not a defect label:
+    codopex-generated structures only ever contain substitutions."""
+    bulk = cubic_2x2x2()
+    defect = bulk.copy()
+    defect.append("Li", [0.25, 0.25, 0.25], validate_proximity=False)
+    with pytest.raises(ValueError, match="no pristine counterpart"):
+        cp.classify_defects(bulk, defect)
 
 
 # ---------------------------------------------------------------------------

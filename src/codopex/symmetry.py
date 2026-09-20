@@ -5,8 +5,8 @@ Every function takes and returns pymatgen objects; no file I/O happens here.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Dict, List, Sequence
 
 import numpy as np
 from pymatgen.core import Structure
@@ -15,13 +15,38 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 # Hermann-Mauguin -> Schoenflies site-symmetry labels (copy of the mapping
 # used in the original classification notebooks).
 _HM_TO_SCHOENFLIES = {
-    "1": "C1", "-1": "Ci", "2": "C2", "m": "Cs", "2/m": "C2h",
-    "222": "D2", "mm2": "C2v", "mmm": "D2h", "4": "C4", "-4": "S4",
-    "4/m": "C4h", "422": "D4", "4mm": "C4v", "-42m": "D2d", "4/mmm": "D4h",
-    "3": "C3", "-3": "C3i", "32": "D3", "3m": "C3v", "-3m": "D3d",
-    "6": "C6", "-6": "C3h", "6/m": "C6h", "622": "D6", "6mm": "C6v",
-    "-6m2": "D3h", "6/mmm": "D6h", "23": "T", "m-3": "Th", "432": "O",
-    "-43m": "Td", "m-3m": "Oh",
+    "1": "C1",
+    "-1": "Ci",
+    "2": "C2",
+    "m": "Cs",
+    "2/m": "C2h",
+    "222": "D2",
+    "mm2": "C2v",
+    "mmm": "D2h",
+    "4": "C4",
+    "-4": "S4",
+    "4/m": "C4h",
+    "422": "D4",
+    "4mm": "C4v",
+    "-42m": "D2d",
+    "4/mmm": "D4h",
+    "3": "C3",
+    "-3": "C3i",
+    "32": "D3",
+    "3m": "C3v",
+    "-3m": "D3d",
+    "6": "C6",
+    "-6": "C3h",
+    "6/m": "C6h",
+    "622": "D6",
+    "6mm": "C6v",
+    "-6m2": "D3h",
+    "6/mmm": "D6h",
+    "23": "T",
+    "m-3": "Th",
+    "432": "O",
+    "-43m": "Td",
+    "m-3m": "Oh",
 }
 
 
@@ -36,11 +61,8 @@ class SiteInfo:
     """Pristine-site properties of one atom."""
 
     element: str
-    frac_coords: np.ndarray
     wyckoff: str  # e.g. "6c"
     site_symmetry: str  # Schoenflies label, e.g. "C3v"
-    orbit_rep: int  # representative site index of the site's orbit
-    orbit_multiplicity: int  # number of sites in the orbit (within the cell)
 
 
 def _dataset(structure: Structure, symprec: float):
@@ -58,7 +80,7 @@ def _dataset(structure: Structure, symprec: float):
     }
 
 
-def site_table(structure: Structure, symprec: float = 0.01) -> List[SiteInfo]:
+def site_table(structure: Structure, symprec: float = 0.01) -> list[SiteInfo]:
     """Per-site symmetry information for ``structure``.
 
     ``wyckoff`` combines the multiplicity of the site's orbit (within this
@@ -77,27 +99,24 @@ def site_table(structure: Structure, symprec: float = 0.01) -> List[SiteInfo]:
             "check the structure is a valid crystal with PBC"
         )
 
-    multiplicity: Dict[int, int] = {}
+    multiplicity: dict[int, int] = {}
     for rep in equiv:
         multiplicity[rep] = multiplicity.get(rep, 0) + 1
 
-    info: List[SiteInfo] = []
+    info: list[SiteInfo] = []
     for i, site in enumerate(structure):
         rep = int(equiv[i])
         info.append(
             SiteInfo(
                 element=site.species_string,
-                frac_coords=site.frac_coords.copy(),
                 wyckoff=f"{multiplicity[rep]}{wyckoffs[i]}",
                 site_symmetry=format_site_symmetry(sym_symbols[i]),
-                orbit_rep=rep,
-                orbit_multiplicity=multiplicity[rep],
             )
         )
     return info
 
 
-def equivalent_atoms(structure: Structure, symprec: float = 1e-3) -> List[int]:
+def equivalent_atoms(structure: Structure, symprec: float = 1e-3) -> list[int]:
     """Orbit representative index per site (spglib ``equivalent_atoms``)."""
     return [int(i) for i in _dataset(structure, symprec=symprec)["equivalent_atoms"]]
 
@@ -106,15 +125,19 @@ def orbits_of(
     structure: Structure,
     species: Sequence[str] | None = None,
     symprec: float = 1e-3,
-) -> List[List[int]]:
+    equiv: Sequence[int] | None = None,
+) -> list[list[int]]:
     """Partition site indices into symmetry orbits.
 
     Only sites whose species are in ``species`` (or all sites if None) are
     kept.  Orbits are returned sorted by their smallest site index, which
     defines the deterministic configuration order of the enumeration engine.
+    Pass precomputed ``equiv`` (``equivalent_atoms`` of ``structure``) to skip
+    a repeated spglib search when grouping several species of one structure.
     """
-    equiv = equivalent_atoms(structure, symprec=symprec)
-    grouped: Dict[int, List[int]] = {}
+    if equiv is None:
+        equiv = equivalent_atoms(structure, symprec=symprec)
+    grouped: dict[int, list[int]] = {}
     for i, rep in enumerate(equiv):
         if species is not None and structure[i].species_string not in species:
             continue

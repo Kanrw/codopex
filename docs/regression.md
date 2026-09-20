@@ -62,18 +62,14 @@ regression therefore accepts the swapped orientation for those pairs
   shell of both distances, minimizing the mean (falling back to the overall
   mean-distance minimum).
 
-## Reproducing the full dev-time parity check
+## Reproducing the full parity check
 
-The exhaustive per-job comparison against the SAGAR artifacts (configuration
-counts and degeneracies per enumeration job, structure matching of all
-representatives) requires the original output directories, which live
-outside this repository:
-
-```
-/Users/mlwang/Documents/Research/cslp/gen_classify_codoping/
-    codope_260812/            # 15 pair folders + work_* jobs + deg.txt
-    codope_260812_3def/       # 35 triple folders + CSVs
-```
-
-The per-job enumeration (configuration counts and degeneracy multisets)
-matched SAGAR exactly for all eleven pair jobs and all triple jobs.
+The committed regression covers type discovery, base structures, pair
+distances/representatives and triple criteria on the fixtures in
+`tests/data/ppo`.  During development an exhaustive per-job comparison was
+also run against the original SAGAR artifacts (the full `codope_*` output
+directories of the source study, including `work_*` job folders and
+`deg.txt`): configuration counts and degeneracy multisets matched SAGAR
+exactly for all eleven pair jobs and all triple jobs.  Those raw artifacts
+are not part of this repository; the committed fixtures are the subset
+needed to keep the parity contract testable.

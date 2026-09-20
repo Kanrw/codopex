@@ -22,15 +22,21 @@ each select one representative structure:
 The shell ("nn" = first, "nnn" = second) is controlled by ``shells``.
 All inequivalent configurations are kept in ``complexes[combo].candidates``
 together with their d_AC / d_BC distances and degeneracies.
+
+:func:`generate_all_triples` runs the same pipeline over every parent pair
+(or a requested subset) in one call and reports pairs that lack the
+requested representative instead of failing.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from collections.abc import Sequence
 
 from codopex import engine
 from codopex.pipeline import SHELL_LABELS, shell_groups
+from codopex.symmetry import equivalent_atoms
 from codopex.types import (
+    AllTriplesResult,
     PairsResult,
     TripleCandidate,
     TripleComplex,
@@ -44,7 +50,7 @@ def generate_triples(
     pair: str,
     shells: str = "nn",
     pair_shell: str = "nn",
-    third: Optional[List] = None,
+    third: list | None = None,
     enum_symprec: float = 1e-3,
 ) -> TriplesResult:
     """Generate triple complexes on top of one defect-pair combo.
@@ -86,8 +92,7 @@ def generate_triples(
 
     if pair not in pairs_result.complexes:
         raise ValueError(
-            f"pair {pair!r} not among generated combos. "
-            f"Available: {sorted(pairs_result.complexes)}"
+            f"pair {pair!r} not among generated combos. Available: {sorted(pairs_result.complexes)}"
         )
     comp = pairs_result.complexes[pair]
     rep = next((s for s in comp.shells if s.label == pair_shell), None)
@@ -98,7 +103,7 @@ def generate_triples(
             f"Available shells: {[s.label for s in comp.shells]}"
         )
 
-    i, j = comp.type_a.index, comp.type_b.index
+    j = comp.type_b.index
     base_pair = rep.candidate.structure
     a_idx = comp.base_dopant_site  # type-A dopant site (index into base_pair)
     b_idx = rep.candidate.site_index  # type-B dopant site (index into base_pair)
@@ -106,7 +111,7 @@ def generate_triples(
     third_set = {tuple(t) for t in third} if third is not None else None
 
     # reactions of the owned third types, in canonical type order
-    jobs: List[int] = []
+    jobs: list[int] = []
     for c in range(j, len(types)):
         r = reactions.index((types[c].host, types[c].dopant))
         if third_set is not None and (types[c].host, types[c].dopant) not in third_set:
@@ -123,7 +128,10 @@ def generate_triples(
         "empty": [],
     }
 
-    complexes: Dict[str, TripleComplex] = {}
+    # one spglib search on the pair base, reused by every reaction below
+    equiv = equivalent_atoms(base_pair, symprec=enum_symprec)
+
+    complexes: dict[str, TripleComplex] = {}
     for r in jobs:
         host, dop = reactions[r]
         # all host sites may already be consumed by the pair
@@ -133,7 +141,7 @@ def generate_triples(
             )
             continue
         configs = engine.enumerate_substitutions(
-            base_pair, host, dop, symprec=enum_symprec
+            base_pair, host, dop, symprec=enum_symprec, equiv=equiv
         )
         stats["jobs"].append({"reaction": f"{dop}@{host}", "n_configs": len(configs)})
         for cfg in configs:
@@ -180,6 +188,72 @@ def generate_triples(
     )
 
 
+def generate_all_triples(
+    pairs_result: PairsResult,
+    pairs: Sequence[str] | None = None,
+    shells: str = "nn",
+    pair_shell: str = "nn",
+    third: list | None = None,
+    enum_symprec: float = 1e-3,
+) -> AllTriplesResult:
+    """Generate triple complexes for many parent pairs in one call.
+
+    This is a convenience wrapper around :func:`generate_triples`: every
+    requested parent pair is expanded with the same options.  Pairs that have
+    no representative in ``pair_shell`` (for example ``nnn`` was not
+    generated for them) are reported in ``AllTriplesResult.skipped`` instead
+    of raising, so a batch over ``shells="nnn"`` pairs stays usable.
+
+    Parameters
+    ----------
+    pairs_result : PairsResult
+        Output of :func:`codopex.generate_pairs`.
+    pairs : optional sequence of str
+        Parent pair combos to expand.  Default: all combos in
+        ``pairs_result``, in sorted order.
+    shells, pair_shell, third, enum_symprec
+        Forwarded to :func:`generate_triples` for every parent.
+
+    Returns
+    -------
+    AllTriplesResult
+        ``results`` maps parent pair label -> :class:`TriplesResult`;
+        ``skipped`` lists the parents without the requested shell.
+    """
+    if shells not in SHELL_LABELS.values():
+        raise ValueError(f"shells must be 'nn' or 'nnn', got {shells!r}")
+    if pair_shell not in SHELL_LABELS.values():
+        raise ValueError(f"pair_shell must be 'nn' or 'nnn', got {pair_shell!r}")
+
+    if pairs is None:
+        requested = sorted(pairs_result.complexes)
+    else:
+        requested = list(pairs)
+        missing = [p for p in requested if p not in pairs_result.complexes]
+        if missing:
+            raise ValueError(
+                f"pairs not among generated combos: {missing}. "
+                f"Available: {sorted(pairs_result.complexes)}"
+            )
+
+    results: dict[str, TriplesResult] = {}
+    skipped: list[str] = []
+    for parent in requested:
+        comp = pairs_result.complexes[parent]
+        if not any(s.label == pair_shell for s in comp.shells):
+            skipped.append(parent)
+            continue
+        results[parent] = generate_triples(
+            pairs_result,
+            parent,
+            shells=shells,
+            pair_shell=pair_shell,
+            third=third,
+            enum_symprec=enum_symprec,
+        )
+    return AllTriplesResult(results=results, skipped=skipped)
+
+
 def _select_criteria(tc: TripleComplex, tier: int, dist_tol: float) -> None:
     """Apply the three placement criteria to a triple complex.
 
@@ -193,8 +267,8 @@ def _select_criteria(tc: TripleComplex, tier: int, dist_tol: float) -> None:
     order_bc = sorted(range(len(cands)), key=lambda k: (cands[k].d_bc, k))
     ac_group = shell_groups([cands[k].d_ac for k in order_ac], dist_tol)
     bc_group = shell_groups([cands[k].d_bc for k in order_bc], dist_tol)
-    ac_shell = {k: g for g, k in zip(ac_group, order_ac)}
-    bc_shell = {k: g for g, k in zip(bc_group, order_bc)}
+    ac_shell = {k: g for g, k in zip(ac_group, order_ac, strict=True)}
+    bc_shell = {k: g for g, k in zip(bc_group, order_bc, strict=True)}
 
     avg = lambda c: (c.d_ac + c.d_bc) / 2  # noqa: E731
 
@@ -219,9 +293,9 @@ def _select_criteria(tc: TripleComplex, tier: int, dist_tol: float) -> None:
     ]
 
 
-def triple_rows(result: TriplesResult) -> List[dict]:
+def triple_rows(result: TriplesResult) -> list[dict]:
     """Flatten triple representatives into manifest rows (dicts)."""
-    rows: List[dict] = []
+    rows: list[dict] = []
     for tc in (result.complexes[k] for k in sorted(result.complexes)):
         for sel in tc.selections:
             cand = sel.candidate

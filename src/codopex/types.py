@@ -9,12 +9,12 @@ labelled and tracked through the pair / triple stages.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 from pymatgen.core import Structure
 
-Reaction = Tuple[str, str]  # (host_element, dopant_element)
+Reaction = tuple[str, str]  # (host_element, dopant_element)
 
 
 @dataclass(frozen=True)
@@ -44,12 +44,11 @@ class DefectType:
 class SubstitutionConfig:
     """One symmetry-inequivalent single-substitution configuration.
 
-    ``structure`` equals ``base`` with the dopant placed on site
+    ``structure`` equals the enumeration base with the dopant placed on site
     ``site_index``; all other sites (positions and species) are untouched.
     """
 
-    base: Structure
-    site_index: int  # index (in base) of the substituted host site
+    site_index: int  # index of the substituted host site in the base
     structure: Structure  # base with dopant on site_index
     degeneracy: int  # number of equivalent host sites in the same orbit
     config_index: int  # 0-based order within the enumeration task
@@ -97,10 +96,10 @@ class PairComplex:
     type_b: DefectType
     base_structure: Structure  # single-defect base of type A used for generation
     base_dopant_site: int  # index of the type-A dopant in base_structure
-    candidates: List[PairCandidate] = field(default_factory=list)
-    shells: List[PairShell] = field(default_factory=list)  # representatives, in order
+    candidates: list[PairCandidate] = field(default_factory=list)
+    shells: list[PairShell] = field(default_factory=list)  # representatives, in order
 
-    def shell_structure(self, label: str) -> Optional[Structure]:
+    def shell_structure(self, label: str) -> Structure | None:
         for s in self.shells:
             if s.label == label:
                 return s.candidate.structure
@@ -125,7 +124,7 @@ class TripleSelection:
     """One selected representative per criterion."""
 
     criterion: str  # "nearA_farB" | "nearB_farA" | "both_nn"
-    candidate: Optional[TripleCandidate] = None
+    candidate: TripleCandidate | None = None
 
 
 @dataclass
@@ -135,10 +134,10 @@ class TripleComplex:
     combo: str
     pair: str  # the requested pair "A+B"
     type_c: DefectType
-    candidates: List[TripleCandidate] = field(default_factory=list)
-    selections: List[TripleSelection] = field(default_factory=list)
+    candidates: list[TripleCandidate] = field(default_factory=list)
+    selections: list[TripleSelection] = field(default_factory=list)
 
-    def selection(self, criterion: str) -> Optional[TripleCandidate]:
+    def selection(self, criterion: str) -> TripleCandidate | None:
         for s in self.selections:
             if s.criterion == criterion:
                 return s.candidate
@@ -159,22 +158,20 @@ class PairsResult:
     """
 
     bulk: Structure
-    reactions: List[Reaction]
-    types: List[DefectType]  # canonical order
-    bases: Dict[str, SingleDefectBase]  # type label -> base structure + metadata
-    complexes: Dict[str, PairComplex]  # combo label -> complex
+    reactions: list[Reaction]
+    types: list[DefectType]  # canonical order
+    bases: dict[str, SingleDefectBase]  # type label -> base structure + metadata
+    complexes: dict[str, PairComplex]  # combo label -> complex
     dist_tol: float = 0.05
-    site_type_maps: List[Dict[int, Optional["DefectType"]]] = field(
-        default_factory=list
-    )
+    site_type_maps: list[dict[int, DefectType | None]] = field(default_factory=list)
     """Per reaction (index in ``reactions``): pristine site index -> type."""
     stats: dict = field(default_factory=dict)
 
     @property
-    def type_labels(self) -> List[str]:
+    def type_labels(self) -> list[str]:
         return [t.label for t in self.types]
 
-    def complex_for(self, combo: str) -> Optional[PairComplex]:
+    def complex_for(self, combo: str) -> PairComplex | None:
         return self.complexes.get(combo)
 
 
@@ -185,5 +182,32 @@ class TriplesResult:
     pairs: PairsResult
     pair: str  # requested pair combo
     pair_shell: str  # tier ("nn"/"nnn") of the pair structure used as base
-    complexes: Dict[str, TripleComplex]  # triple combo label -> complex
+    complexes: dict[str, TripleComplex]  # triple combo label -> complex
     stats: dict = field(default_factory=dict)
+
+
+@dataclass
+class AllTriplesResult:
+    """Result of :func:`codopex.generate_all_triples` (batch over parent pairs).
+
+    Iterating the object yields the parent pair labels; ``batch[pair]`` gives
+    the :class:`TriplesResult` of that parent.
+    """
+
+    results: dict[str, TriplesResult]  # parent pair combo -> result
+    skipped: list[str] = field(default_factory=list)
+    """Parent pairs without a representative in the requested pair shell."""
+
+    @property
+    def pair_labels(self) -> list[str]:
+        """Parent pair combos that produced a result, in request order."""
+        return list(self.results)
+
+    def __getitem__(self, pair: str) -> TriplesResult:
+        return self.results[pair]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.results)
+
+    def __len__(self) -> int:
+        return len(self.results)

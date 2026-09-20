@@ -1,0 +1,51 @@
+cff-version: 1.2.0
+message: "If you use codopex in your research, please cite the accompanying paper (see preferred-citation)."
+title: "codopex: symmetry-inequivalent co-doping defect-complex generation"
+abstract: >-
+  codopex generates symmetry-inequivalent substitutional co-doping defect
+  complexes (pairs and triples) in a host supercell, using pure
+  pymatgen/spglib symmetry analysis and exporting POSCAR trees for VASP.
+authors:
+  - family-names: Wang
+    given-names: Ming-Long
+    affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
+  - family-names: Yao
+    given-names: Yao
+    affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
+  - family-names: He
+    given-names: Chang-Chun
+    affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
+  - family-names: Zhao
+    given-names: Yu-Jun
+    affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
+version: 0.1.0
+date-released: 2026-09-09
+license: MIT
+repository-code: "https://github.com/Kanrw/codopex"
+url: "https://github.com/Kanrw/codopex"
+keywords:
+  - defects
+  - doping
+  - codoping
+  - materials science
+  - density functional theory
+  - pymatgen
+type: software
+preferred-citation:
+  type: article
+  status: submitted
+  title: "An Efficient Strategy for Identifying Stable Co-doping Configurations in Complex Systems"
+  authors:
+    - family-names: Wang
+      given-names: Ming-Long
+      affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
+    - family-names: Yao
+      given-names: Yao
+      affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
+    - family-names: He
+      given-names: Chang-Chun
+      affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
+    - family-names: Zhao
+      given-names: Yu-Jun
+      affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
+  year: 2026

@@ -18,9 +18,7 @@ written here.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence, Tuple
-
-from pymatgen.core import Structure
+from collections.abc import Sequence
 
 from codopex import engine
 from codopex.pipeline import (
@@ -32,7 +30,6 @@ from codopex.pipeline import (
 )
 from codopex.symmetry import fractional_distance_to, site_table
 from codopex.types import (
-    DefectType,
     PairCandidate,
     PairComplex,
     PairShell,
@@ -46,13 +43,13 @@ CENTER = (0.5, 0.5, 0.5)
 
 def generate_pairs(
     bulk,
-    reactions: List[Reaction],
+    reactions: list[Reaction],
     shells: str = "nn",
     dist_tol: float = 0.05,
     enum_symprec: float = 1e-3,
     site_symprec: float = 0.01,
     center: Sequence[float] = CENTER,
-    type_order: Optional[List[str]] = None,
+    type_order: list[str] | None = None,
 ) -> PairsResult:
     """Generate nearest (and optionally next-nearest) defect-pair complexes.
 
@@ -86,8 +83,13 @@ def generate_pairs(
     """
     bulk = load_bulk(bulk)
     reactions = dedupe_reactions(list(reactions))
+    site_info = site_table(bulk, symprec=site_symprec)
     types, type_by_reaction = build_types(
-        bulk, reactions, site_symprec=site_symprec, type_order=type_order
+        bulk,
+        reactions,
+        site_symprec=site_symprec,
+        type_order=type_order,
+        site_info=site_info,
     )
     label_index = {t.label: t.index for t in types}
 
@@ -100,8 +102,7 @@ def generate_pairs(
     # enumeration tolerance).  This reproduces the base selection of the
     # original SAGAR workflow (verified against its saved base files) and
     # gives the most isolated defect position.
-    site_info = site_table(bulk, symprec=site_symprec)
-    bases: Dict[str, SingleDefectBase] = {}
+    bases: dict[str, SingleDefectBase] = {}
     for t in types:
         members = [
             i
@@ -113,9 +114,7 @@ def generate_pairs(
         if not members:
             stats["single_defect"][t.label] = {"n_sites": 0}
             continue
-        site = min(
-            members, key=lambda i: fractional_distance_to(bulk[i].frac_coords, center)
-        )
+        site = min(members, key=lambda i: fractional_distance_to(bulk[i].frac_coords, center))
         d = fractional_distance_to(bulk[site].frac_coords, center)
         structure = bulk.copy()
         structure.replace(site, t.dopant)
@@ -132,7 +131,7 @@ def generate_pairs(
         }
 
     # ---- step 2+3: pair combos -------------------------------------------
-    complexes: Dict[str, PairComplex] = {}
+    complexes: dict[str, PairComplex] = {}
     n_types = len(types)
     for i, ti in enumerate(types):
         base_rec = bases[ti.label]
@@ -146,13 +145,15 @@ def generate_pairs(
             host, dop = reactions[r]
             # all host sites of this reaction may already be consumed by the
             # base defect (e.g. self-pair with a single host site): skip
-            n_host = sum(
-                1 for s in base_rec.structure if s.species_string == host
-            )
+            n_host = sum(1 for s in base_rec.structure if s.species_string == host)
             if n_host == 0:
                 stats["jobs"].append(
-                    {"base": ti.label, "reaction": f"{dop}@{host}",
-                     "n_configs": 0, "skipped_no_host": True}
+                    {
+                        "base": ti.label,
+                        "reaction": f"{dop}@{host}",
+                        "n_configs": 0,
+                        "skipped_no_host": True,
+                    }
                 )
                 continue
             configs = engine.enumerate_substitutions(
@@ -183,13 +184,14 @@ def generate_pairs(
                     degeneracy=cfg.degeneracy,
                 )
                 complexes.setdefault(
-                    key, PairComplex(
+                    key,
+                    PairComplex(
                         combo=key,
                         type_a=ti,
                         type_b=t_c,
                         base_structure=base_rec.structure,
                         base_dopant_site=base_rec.dopant_site,
-                    )
+                    ),
                 ).candidates.append(cand)
 
     # ---- step 4: shells and representatives ------------------------------
@@ -200,9 +202,9 @@ def generate_pairs(
     for key, comp in complexes.items():
         comp.candidates.sort(key=lambda c: (c.distance, c.config_index))
         groups = shell_groups([c.distance for c in comp.candidates], dist_tol)
-        for cand, g in zip(comp.candidates, groups):
+        for cand, g in zip(comp.candidates, groups, strict=True):
             cand.shell = g
-        reps: Dict[int, PairCandidate] = {}
+        reps: dict[int, PairCandidate] = {}
         for cand in comp.candidates:
             reps.setdefault(cand.shell, cand)
         comp.shells = [
@@ -232,9 +234,9 @@ def generate_pairs(
     )
 
 
-def pair_rows(result: PairsResult) -> List[dict]:
+def pair_rows(result: PairsResult) -> list[dict]:
     """Flatten the pair representatives into manifest rows (dicts)."""
-    rows: List[dict] = []
+    rows: list[dict] = []
     for key in sorted(result.complexes):
         comp = result.complexes[key]
         for shell in comp.shells:

@@ -11,16 +11,16 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
 
 from pymatgen.core import Structure
 
-from codopex.symmetry import site_table
+from codopex.symmetry import SiteInfo, site_table
 from codopex.types import DefectType, Reaction
 
 SHELL_LABELS = {0: "nn", 1: "nnn"}  # first and second distance shell
 
-SiteKey = Tuple[str, str, str]  # (host element, site symmetry, wyckoff tag)
+SiteKey = tuple[str, str, str]  # (host element, site symmetry, wyckoff tag)
 
 
 def load_bulk(bulk) -> Structure:
@@ -30,10 +30,10 @@ def load_bulk(bulk) -> Structure:
     return Structure.from_file(bulk)
 
 
-def dedupe_reactions(reactions: List[Reaction]) -> List[Reaction]:
+def dedupe_reactions(reactions: list[Reaction]) -> list[Reaction]:
     """Remove duplicate (host, dopant) entries, keeping first order."""
     seen: set = set()
-    out: List[Reaction] = []
+    out: list[Reaction] = []
     for r in reactions:
         if r not in seen:
             seen.add(r)
@@ -43,10 +43,11 @@ def dedupe_reactions(reactions: List[Reaction]) -> List[Reaction]:
 
 def build_types(
     bulk: Structure,
-    reactions: List[Reaction],
+    reactions: list[Reaction],
     site_symprec: float = 0.01,
-    type_order: Optional[List[str]] = None,
-) -> Tuple[List[DefectType], List[Dict[int, Optional[DefectType]]]]:
+    type_order: list[str] | None = None,
+    site_info: list[SiteInfo] | None = None,
+) -> tuple[list[DefectType], list[dict[int, DefectType | None]]]:
     """Discover defect types from the pristine bulk.
 
     A "type" is one (host, dopant) reaction applied to one symmetry class of
@@ -57,7 +58,8 @@ def build_types(
     Canonical order: reactions in the order given; within a reaction, types
     in order of first occurrence along the bulk site list.  ``type_order``
     overrides the final ordering by type label (e.g. to reproduce the hand
-    ordering of an earlier study).
+    ordering of an earlier study).  Pass ``site_info`` (the bulk site table)
+    to reuse an existing spglib analysis.
 
     Returns
     -------
@@ -66,13 +68,15 @@ def build_types(
         (None for sites that are not host sites of that reaction).
     """
     reactions = dedupe_reactions(reactions)
-    info = site_table(bulk, symprec=site_symprec)
-    host_set = {host for host, _ in reactions}
+    if site_info is None:
+        info = site_table(bulk, symprec=site_symprec)
+    else:
+        info = site_info
 
     # per reaction: site key -> first bulk index where it occurs
-    first_site: List[Dict[SiteKey, int]] = []
+    first_site: list[dict[SiteKey, int]] = []
     for host, _dop in reactions:
-        seen: Dict[SiteKey, int] = {}
+        seen: dict[SiteKey, int] = {}
         for s, it in enumerate(info):
             if it.element == host:
                 key = (host, it.site_symmetry, it.wyckoff)
@@ -81,17 +85,17 @@ def build_types(
         first_site.append(seen)
 
     # raw entries in canonical order (reaction order, then first-site order)
-    raw: List[Tuple[int, int, SiteKey, str]] = []  # (r, site, key, base label)
+    raw: list[tuple[int, int, SiteKey, str]] = []  # (r, site, key, base label)
     for r, (host, dop) in enumerate(reactions):
         for key, s in first_site[r].items():  # dict is insertion-ordered
             raw.append((r, s, key, f"{dop}_{host}_{key[1]}"))
 
     # disambiguate duplicated plain labels (same host+dopant+symmetry on two
     # different Wyckoff classes) by appending the wyckoff tag
-    base_count: Dict[Tuple[int, str], int] = {}
+    base_count: dict[tuple[int, str], int] = {}
     for r, _s, _key, label in raw:
         base_count[(r, label)] = base_count.get((r, label), 0) + 1
-    labels: List[str] = []
+    labels: list[str] = []
     for r, _s, key, label in raw:
         if base_count[(r, label)] > 1:
             labels.append(f"{label}_{key[2]}")
@@ -113,10 +117,10 @@ def build_types(
         types = _apply_type_order(types, type_order)
 
     # per-reaction site -> type map (None for non-host sites)
-    type_by_reaction: List[Dict[int, Optional[DefectType]]] = []
-    for r, (host, dop) in enumerate(reactions):
+    type_by_reaction: list[dict[int, DefectType | None]] = []
+    for host, dop in reactions:
         matching = [t for t in types if t.host == host and t.dopant == dop]
-        mapping: Dict[int, Optional[DefectType]] = {}
+        mapping: dict[int, DefectType | None] = {}
         for s, it in enumerate(info):
             if it.element != host:
                 mapping[s] = None
@@ -128,7 +132,7 @@ def build_types(
     return types, type_by_reaction
 
 
-def _apply_type_order(types: List[DefectType], type_order: List[str]) -> List[DefectType]:
+def _apply_type_order(types: list[DefectType], type_order: list[str]) -> list[DefectType]:
     by_label = {t.label: t for t in types}
     if set(type_order) != set(by_label):
         raise ValueError(
@@ -137,22 +141,26 @@ def _apply_type_order(types: List[DefectType], type_order: List[str]) -> List[De
         )
     return [
         DefectType(
-            host=t.host, dopant=t.dopant, site_symmetry=t.site_symmetry,
-            site_tag=t.site_tag, index=i, label=t.label,
+            host=t.host,
+            dopant=t.dopant,
+            site_symmetry=t.site_symmetry,
+            site_tag=t.site_tag,
+            index=i,
+            label=t.label,
         )
-        for i, t in enumerate(by_label[l] for l in type_order)
+        for i, t in enumerate(by_label[label] for label in type_order)
     ]
 
 
-def shell_groups(distances: Sequence[float], dist_tol: float) -> List[int]:
+def shell_groups(distances: Sequence[float], dist_tol: float) -> list[int]:
     """Assign 0-based shell-group indices to *sorted* distances.
 
     Reproduces the notebook algorithm: a new shell starts when a distance
     exceeds the start of the previous shell by more than ``dist_tol``
     Angstrom.
     """
-    groups: List[int] = []
-    starts: List[float] = []
+    groups: list[int] = []
+    starts: list[float] = []
     for d in distances:
         if not starts or d - starts[-1] > dist_tol:
             starts.append(d)

@@ -1,5 +1,10 @@
 # codopex
 
+[![CI](https://github.com/Kanrw/codopex/actions/workflows/ci.yml/badge.svg)](https://github.com/Kanrw/codopex/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/Kanrw/codopex)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 Generate symmetry-inequivalent co-doping defect-pair and higher-order
 complexes in a host supercell.
 
@@ -19,7 +24,10 @@ studies: given a pristine supercell and a set of substitution reactions
 
 Everything is computed in memory with pymatgen/spglib — no external
 enumerator, no file side effects.  Structures keep the pristine site order;
-export helpers write POSCAR trees and manifests when you need VASP inputs.
+export helpers write POSCAR trees and manifests when you need VASP inputs,
+and results can be saved/loaded as JSON to split the two phases across
+sessions or machines.  The same workflows are available from the command
+line (`codopex --help`).
 
 ```text
 codopex 为您生成共掺杂缺陷复合体的不等价构型：
@@ -28,13 +36,23 @@ codopex 为您生成共掺杂缺陷复合体的不等价构型：
 三种放置判据生成三缺陷复合体。纯 pymatgen 实现，无外部枚举器。
 ```
 
+![Physically guided workflow for constructing and screening co-doping configurations](docs/fig5-workflow.png)
+
+*The workflow codopex supports (Fig. 5 of the accompanying paper): (a) a
+screening cascade that reduces the pair space to a seed set, and (b) the
+iterative expansion of bound pairs into higher-order complexes.*
+
 ## Installation
 
 ```bash
-pip install -e .          # from the repository root
+git clone https://github.com/Kanrw/codopex.git
+cd codopex
+pip install -e .          # library
+pip install -e ".[dev]"   # with test/lint tooling
 ```
 
-Requires Python ≥ 3.10, `pymatgen>=2024` and `numpy`.
+Requires Python ≥ 3.10, `pymatgen>=2024` and `numpy`.  `pandas` is an
+optional extra used only by `codopex.io.to_dataframe`.
 
 ## Quick start
 
@@ -43,31 +61,71 @@ import codopex as cp
 
 # Phase 1: nearest-neighbour pairs among Cu@Pb, S@O and S@P
 pairs = cp.generate_pairs(
-    "CONTCAR",                          # pristine supercell (Structure or path)
+    "CONTCAR",  # pristine supercell (Structure or path)
     [("Pb", "Cu"), ("O", "S"), ("P", "S")],
 )
 
 pairs.type_labels
-# ['Cu_Pb_C3v', 'Cu_Pb_D3d', 'S_O_Cs', 'S_O_C3v', 'S_P_C3v']
+# e.g. ['Cu_Pb_D3d', 'Cu_Pb_C3v', 'S_O_C3v', 'S_O_Cs', 'S_P_C3v']
+# canonical order follows the input site order; pass type_order=[...] to
+# reproduce a hand-picked ordering
 
 for row in cp.pair_rows(pairs):
     print(row["combo"], row["shell"], row["dist_AB"])
 
 # include the next-nearest shell as well
-pairs = cp.generate_pairs("CONTCAR", [("Pb", "Cu"), ("O", "S"), ("P", "S")],
-                          shells="nnn")
+pairs = cp.generate_pairs("CONTCAR", [("Pb", "Cu"), ("O", "S"), ("P", "S")], shells="nnn")
 
 # Phase 2: expand one pair by an additional S@O dopant
 triples = cp.generate_triples(
     pairs,
     pair="Cu_Pb_C3v+S_O_C3v",
-    third=[("O", "S")],     # optional; default: all reactions of the pairs
+    third=[("O", "S")],  # optional; default: all reactions of the pairs
 )
 for row in cp.triple_rows(triples):
     print(row["combo"], row["criterion"], row["d_AC"], row["d_BC"])
+
+# ... or expand every parent pair in one call
+batch = cp.generate_all_triples(pairs)
+for parent in batch:
+    print(parent, len(batch[parent].complexes), "triple combos")
+batch.skipped  # parent pairs without a representative in the chosen shell
 ```
 
-### What you get back
+### Saving and loading results
+
+Phase 1 and phase 2 do not have to run in the same process:
+
+```python
+cp.io.save(pairs, "runs/pairs.json.gz")  # gzip when the path ends in .gz
+pairs = cp.io.load("runs/pairs.json.gz")  # fully equivalent, all candidates
+```
+
+`save()`/`load()` accept pair results, triple results and the batch result
+of `generate_all_triples()`, and keep every structure, distance, degeneracy
+and stat.  The file records the codopex version and a format version.
+
+## Command line
+
+```bash
+# Phase 1: write the POSCAR tree, a manifest and a reloadable result
+codopex pairs CONTCAR -r Cu@Pb -r S@O -r S@P --shells nnn \
+    --out runs/pairs --save runs/pairs/pairs.json.gz
+
+# Phase 2: expand every pair (or selected ones) by an additional S@O dopant
+codopex triples --load-pairs runs/pairs/pairs.json.gz --third S@O \
+    --out runs/triples --save runs/triples/triples.json.gz
+
+# Label the defects of an externally produced structure
+codopex classify bulk.vasp defect.vasp
+```
+
+Reactions are written `DOPANT@HOST` (`Cu@Pb` = Cu on Pb sites) and can be
+repeated.  Without `--load-pairs`, `triples` rebuilds phase 1 from a
+structure and reactions.  `--write-all` also dumps every candidate under
+`work_{combo}/`; `--csv FILE` writes the manifest to an explicit path.
+
+## What you get back
 
 `PairsResult` / `TriplesResult` hold the structures themselves together
 with full metadata:
@@ -125,11 +183,14 @@ A/B convention: A is the pair's base-type dopant, B the added one; C is
 the third dopant.  Site order is never changed: site `i` of any returned
 structure is pristine site `i` with (possibly) a different element.
 
-## Testing
+## Testing and development
 
 ```bash
 pip install -e ".[dev]"
-python -m pytest tests/
+pytest                      # test suite
+pytest --cov=codopex        # with coverage
+ruff check . && ruff format --check .
+mypy
 ```
 
 * `tests/test_synthetic.py` — mechanics on small crystals (shells, base
@@ -138,24 +199,25 @@ python -m pytest tests/
   SAGAR-based workflow on the Pb3(PO4)2 Cu–S case (`tests/data/ppo`).
   See `docs/regression.md` for what is exact, what differs by design, and
   why.
+* `tests/test_persistence.py`, `tests/test_cli.py` — save/load round trips,
+  the batch API and the command line.
 
-## Publishing
+Contributions are welcome — see `CONTRIBUTING.md`.
 
-The repository is set up to publish as a public GitHub project (MIT).
-The `gh` CLI is not installed on the development machine, so publishing is
-manual:
+## Citation
 
-```bash
-# create an empty public repository named codopex on github.com, then
-git remote add origin git@github.com:<you>/codopex.git
-git push -u origin main
-```
+codopex accompanies *An Efficient Strategy for Identifying Stable Co-doping
+Configurations in Complex Systems* (Wang, Yao, He, Zhao; manuscript under
+review).  Machine-readable metadata is in [`CITATION.cff`](CITATION.cff)
+(GitHub's "Cite this repository" button); journal and DOI will be added
+there once the paper is published.
 
 ## Limitations
 
-* Only *substitutional* complexes are enumerated (vacancies and
-  interstitials are labelled by `classify_defects` but are not part of the
-  generation pipeline yet).
+* Only *substitutional* complexes are enumerated.  `classify_defects`
+  labels substitutions and vacancies, but a defect site without a pristine
+  counterpart (an interstitial atom) is reported as an error: every site of
+  a codopex-generated structure corresponds to a pristine site.
 * The input is a single pristine supercell; codopex does not build or
   enlarge supercells and does not check that the cell is large enough for
   the defects of interest (it warns only when a site class is exhausted).

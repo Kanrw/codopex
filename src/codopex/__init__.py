@@ -15,15 +15,22 @@ Typical usage::
     # Phase 2: expand one pair by an additional S@O dopant
     triples = cp.generate_triples(pairs, "Cu_Pb_C3v+S_O_C3v", third=[("O", "S")])
 
+    # ... or expand every pair in one call
+    batch = cp.generate_all_triples(pairs)
+
 Structures are returned in-memory; use :mod:`codopex.io` to export POSCAR
-trees and CSV manifests for VASP runs.
+trees and CSV manifests for VASP runs, or to save/load results as JSON
+(``codopex.io.save`` / ``codopex.io.load``).  The same workflows are
+available from the command line (``codopex --help``).
 """
 
-from codopex import io
+from codopex import io as io
+from codopex._version import __version__
 from codopex.classify import DefectRecord, classify_defects
 from codopex.pairs import generate_pairs, pair_rows
-from codopex.triples import generate_triples, triple_rows
+from codopex.triples import generate_all_triples, generate_triples, triple_rows
 from codopex.types import (
+    AllTriplesResult,
     DefectType,
     PairCandidate,
     PairComplex,
@@ -36,9 +43,8 @@ from codopex.types import (
     TriplesResult,
 )
 
-__version__ = "0.1.0"
-
 __all__ = [
+    "AllTriplesResult",
     "DefectRecord",
     "DefectType",
     "PairCandidate",
@@ -50,7 +56,9 @@ __all__ = [
     "TripleComplex",
     "TripleSelection",
     "TriplesResult",
+    "__version__",
     "classify_defects",
+    "generate_all_triples",
     "generate_pairs",
     "generate_triples",
     "pair_rows",
