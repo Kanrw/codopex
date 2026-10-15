@@ -1,0 +1,18 @@
+{"host": "Pb3(PO4)2, condition A, 900 K, E_F^eq = 1.22 eV",
+ "pairs": {
+  "Cu_Pb_C3v+S_O_Cs":  {"plus": ["HSAB"]},
+  "Cu_Pb_C3v+S_O_C3v": {"plus": ["HSAB"]},
+  "Cu_Pb_D3d+S_O_Cs":  {"plus": ["HSAB"]},
+  "Cu_Pb_D3d+S_O_C3v": {"plus": ["HSAB"]},
+  "Cu_Pb_C3v+Cu_Pb_C3v": {"plus": ["hole coupling"], "minus": {"hole coupling": "insufficient proximity (Pb sublattice, >= 3.76 A)"}},
+  "Cu_Pb_C3v+Cu_Pb_D3d": {"plus": ["hole coupling"], "minus": {"hole coupling": "insufficient proximity (Pb sublattice)"}},
+  "Cu_Pb_D3d+Cu_Pb_D3d": {"plus": ["hole coupling"], "minus": {"hole coupling": "insufficient proximity (5.56 A)"}},
+  "Cu_Pb_C3v+S_P_C3v": {"plus": ["charge compensation"], "minus": {"charge compensation": "polyanion pull (PO4 3- vs SO4 2-)"}},
+  "Cu_Pb_D3d+S_P_C3v": {},
+  "S_O_Cs+S_O_Cs": {},
+  "S_O_Cs+S_O_C3v": {},
+  "S_O_C3v+S_O_C3v": {},
+  "S_O_Cs+S_P_C3v": {},
+  "S_O_C3v+S_P_C3v": {},
+  "S_P_C3v+S_P_C3v": {}
+ }}

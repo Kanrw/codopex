@@ -73,6 +73,9 @@ exclude_lines = [
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# skills/ ships standalone agent-skill assets (e.g. a stdlib-only helper
+# script) that are not part of the library and do not follow its lint rules.
+extend-exclude = ["skills"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]

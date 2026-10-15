@@ -175,6 +175,19 @@ A/B convention: A is the pair's base-type dopant, B the added one; C is
 the third dopant.  Site order is never changed: site `i` of any returned
 structure is pristine site `i` with (possibly) a different element.
 
+## Agent skill
+
+[`skills/codopex-workflow/`](skills/codopex-workflow/) is an agent skill that
+accompanies the paper: it guides a reader or an AI assistant through the full
+physically guided co-doping workflow — point defects and E_F^eq with
+[doped](https://github.com/WMD-group/doped), pair enumeration and
+prioritization (chemical +/− marks → priority tiers), DFT binding energies
+E_b(E_F), expansion of bound complexes (ΔE_b, many-body departure), and the
+abundance / Fermi-level self-consistency check.  It bundles the procedure
+(`SKILL.md`), per-step references, a stdlib-only helper script
+(`scripts/codopex_tools.py`) and fill-in templates.  Drop the directory into
+your agent's skills folder (e.g. `~/.claude/skills/`) to use it.
+
 ## Testing and development
 
 ```bash

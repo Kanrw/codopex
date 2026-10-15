@@ -1,0 +1,29 @@
+# System description for the codopex workflow. Fill in with the user before step 1.
+host:
+  name: Pb3(PO4)2               # formula or label
+  structure: POSCAR_host        # primitive or conventional cell
+  supercell: SPOSCAR            # the cell used for every defect calculation
+  phase_note: R-3m high-temperature phase used as reference
+dopants:                        # dopant -> host sublattices chosen on chemical grounds
+  Cu: [Pb]
+  S:  [O, P]
+excluded_sublattices:           # state why, so the restriction is not mistaken for physics
+  - "Cu on O/P and S on Pb: electronegativity and ionic size"
+include_vacancies: false        # pair dopants with vacancies?
+include_interstitials: false    # codopex is substitution-only; generate sites with doped
+growth:
+  temperature_K: 900
+  chemical_potential_limits: [A, C]   # doped limit labels to be examined
+  dopant_chemical_potentials: upper bound in the stability region
+  doping_mode: open             # open (fixed mu) or closed (fixed content, give x below)
+  dopant_site_fractions: {S_on_O1: 0.01}
+dft:
+  code: VASP
+  functional: PBE+U (U_eff = 5 eV on Cu 3d)
+  finite_size_correction: eFNV (pydefect), centroid of constituents for complexes
+  charge_states_around_qc: 1    # search q_c-1 .. q_c+1
+enumeration:
+  shells: nn                    # nn or nnn
+budget:
+  max_complex_calculations: 30
+  compute_tiers: [I, II, III]   # drop tiers only with an explicit reason

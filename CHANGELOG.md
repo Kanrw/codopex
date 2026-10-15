@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `skills/codopex-workflow/` — an agent skill that walks a user (or an AI
+  assistant) through the physically guided co-doping workflow of the paper:
+  system setup with doped, pair prioritization by chemical scoring, DFT
+  binding energies, expansion of bound complexes, and the equilibrium
+  Fermi-level check.  Ships the procedure (`SKILL.md`), step references, the
+  stdlib-only helper script `scripts/codopex_tools.py` (binding-energy curves,
+  ΔE_b, many-body departure, tiers, abundance, Fermi-level shift) and fill-in
+  templates.  The directory is excluded from ruff: the helper script is a
+  standalone asset, not library code.
+
 ## [0.3.0] - 2026-09-20
 
 Complexity-audit cleanup: dead code, unused API and redundant layers were
