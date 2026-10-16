@@ -8,9 +8,12 @@
 Generate symmetry-inequivalent co-doping defect-pair and higher-order
 complexes in a host supercell.
 
-**codopex** automates the configurational enumeration behind co-doping
-studies: given a pristine supercell and a set of substitution reactions
-(e.g. Cu at Pb sites, S at O sites), it
+In a host with several inequivalent sites the candidate space grows fast: in
+Pb3(PO4)2, two dopant elements already produce fifteen symmetry-inequivalent
+pairs, and every further defect multiplies the count.
+**codopex** automates the enumeration behind such co-doping studies: given a
+pristine supercell and a set of substitution reactions (e.g. Cu at Pb sites,
+S at O sites), it
 
 1. discovers every inequivalent *single-defect type* (a dopant on one
    pristine site-symmetry class, labelled `{dopant}_{host}_{symmetry}`,
@@ -31,9 +34,13 @@ line (`codopex --help`).
 
 ![Physically guided workflow for constructing and screening co-doping configurations](docs/fig5-workflow.png)
 
-*The workflow codopex supports (Fig. 5 of the accompanying paper): (a) a
-screening cascade that reduces the pair space to a seed set, and (b) the
-iterative expansion of bound pairs into higher-order complexes.*
+*The physically guided workflow from the accompanying paper (Fig. 5): (a) each
+pair is scored — +/− marks for the interactions expected to favor or oppose its
+binding — and ranked into priority tiers; (b) the ranked pairs are evaluated
+with DFT and bound complexes are expanded order by order, ending in an
+abundance and equilibrium-Fermi-level check. codopex implements the
+enumeration steps: defect-type discovery, pair enumeration and the
+construction of higher-order complexes.*
 
 ## Installation
 

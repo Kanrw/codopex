@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.1] - 2026-10-16
 
 ### Added
 
@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ΔE_b, many-body departure, tiers, abundance, Fermi-level shift) and fill-in
   templates.  The directory is excluded from ruff: the helper script is a
   standalone asset, not library code.
+
+### Changed
+
+- README now matches the second-round revision of the paper: the workflow
+  figure is replaced by the pair-prioritization / evaluation-and-expansion
+  version (tiers, complex–complex expansion, abundance and E_F^eq check), and
+  the caption and introduction describe the workflow in the same terms.
 
 ## [0.3.0] - 2026-09-20
 
@@ -81,7 +88,8 @@ untouched; result files saved by 0.2.0 still load (unknown keys are ignored).
 - Regression suite against the original SAGAR workflow on the
   Pb3(PO4)2 Cu-S case (`tests/data/ppo`, see `docs/regression.md`).
 
-[Unreleased]: https://github.com/Kanrw/codopex/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Kanrw/codopex/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Kanrw/codopex/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Kanrw/codopex/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Kanrw/codopex/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Kanrw/codopex/releases/tag/v0.1.0
