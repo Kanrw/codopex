@@ -9,7 +9,7 @@ The CLI mirrors the Python API:
         --out runs/pairs --save runs/pairs/pairs.json.gz
 
     # phase 2: expand every pair by an additional S@O dopant
-    codopex triples --load-pairs runs/pairs/pairs.json.gz -r O@S \
+    codopex triples --load-pairs runs/pairs/pairs.json.gz --third S@O \
         --out runs/triples --save runs/triples/triples.json.gz
 
     # label the defects of an externally produced structure
@@ -134,13 +134,25 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DOPANT@HOST",
         help="restrict the third dopant to this reaction (repeatable)",
     )
-    triples.add_argument("--dist-tol", type=float, default=0.05)
+    triples.add_argument(
+        "--dist-tol",
+        type=float,
+        default=None,
+        help="shell tolerance for the placement criteria "
+        "(default: the value stored with --load-pairs, else 0.05)",
+    )
     triples.add_argument("--symprec", type=float, default=1e-3)
-    triples.add_argument("--site-symprec", type=float, default=0.01)
+    triples.add_argument(
+        "--site-symprec",
+        type=float,
+        default=None,
+        help="site-symmetry tolerance of phase 1 (only when rebuilding it)",
+    )
     triples.add_argument(
         "--type-order",
         metavar="L1,L2,...",
-        help="comma-separated type labels overriding the canonical order",
+        help="comma-separated type labels overriding the canonical order "
+        "(only when rebuilding phase 1)",
     )
     triples.add_argument("-o", "--out", help="write a POSCAR tree + manifest.csv here")
     triples.add_argument(
@@ -174,6 +186,11 @@ def _print_pairs_summary(pairs: PairsResult) -> None:
         print(f"  {combo:<40} {shells}")
 
 
+def _count_poscars(root: str) -> int:
+    """Number of POSCAR files now under ``root`` (bases, reps and work_*)."""
+    return sum(1 for _, _, files in os.walk(root) for name in files if name.startswith("POSCAR"))
+
+
 def _cmd_pairs(args: argparse.Namespace) -> int:
     pairs = generate_pairs(
         args.structure,
@@ -189,9 +206,8 @@ def _cmd_pairs(args: argparse.Namespace) -> int:
     print(f"representatives: {len(rows)}")
 
     if args.out:
-        written = io.export_pairs(pairs, args.out, write_all=args.write_all)
-        n_files = sum(len(paths) for paths in written.values())
-        print(f"wrote {n_files} POSCAR files under {args.out}")
+        io.export_pairs(pairs, args.out, write_all=args.write_all)
+        print(f"wrote POSCAR tree under {args.out}: {_count_poscars(args.out)} POSCAR files")
         if rows:
             manifest = os.path.join(args.out, "manifest.csv")
             io.write_rows_csv(rows, manifest)
@@ -209,6 +225,11 @@ def _cmd_triples(args: argparse.Namespace) -> int:
     if args.load_pairs:
         if args.structure is not None or args.reactions:
             raise ValueError("pass either STRUCTURE with -r/--reaction, or --load-pairs, not both")
+        if args.type_order is not None or args.site_symprec is not None:
+            raise ValueError(
+                "--type-order and --site-symprec only apply when phase 1 is rebuilt; "
+                "drop them with --load-pairs (--dist-tol still overrides the shell tolerance)"
+            )
         pairs = io.load(args.load_pairs)
         if not isinstance(pairs, PairsResult):
             raise ValueError(f"{args.load_pairs} does not contain a PairsResult")
@@ -222,9 +243,9 @@ def _cmd_triples(args: argparse.Namespace) -> int:
             args.structure,
             args.reactions,
             shells=args.pair_shell,  # the pair base must contain this shell
-            dist_tol=args.dist_tol,
+            dist_tol=0.05 if args.dist_tol is None else args.dist_tol,
             enum_symprec=args.symprec,
-            site_symprec=args.site_symprec,
+            site_symprec=0.01 if args.site_symprec is None else args.site_symprec,
             type_order=_type_order(args.type_order),
         )
 
@@ -235,6 +256,7 @@ def _cmd_triples(args: argparse.Namespace) -> int:
         pair_shell=args.pair_shell,
         third=args.third,
         enum_symprec=args.symprec,
+        dist_tol=args.dist_tol,
     )
     for parent in batch.skipped:
         print(f"skipped {parent}: no {args.pair_shell!r} representative", file=sys.stderr)
@@ -243,17 +265,26 @@ def _cmd_triples(args: argparse.Namespace) -> int:
         return 1
 
     rows: list[dict] = []
+    missing: dict[str, int] = {}
     for parent in batch:
         print(f"  {parent:<40} {len(batch[parent].complexes)} triple combos")
         rows.extend(triple_rows(batch[parent]))
+        for criterion, n in batch[parent].stats.get("missing", {}).items():
+            missing[criterion] = missing.get(criterion, 0) + n
+    if missing:
+        detail = ", ".join(f"{name}: {n}" for name, n in sorted(missing.items()))
+        print(
+            f"codopex: warning: no candidate in the {args.shells!r} shell for "
+            f"{sum(missing.values())} selection(s) ({detail}); "
+            f"those representatives are absent from the output",
+            file=sys.stderr,
+        )
     print(f"parents: {len(batch)}; triple representatives: {len(rows)}")
 
     if args.out:
-        written: dict[str, list[str]] = {}
         for parent in batch:
-            written.update(io.export_triples(batch[parent], args.out, write_all=args.write_all))
-        n_files = sum(len(paths) for paths in written.values())
-        print(f"wrote {n_files} POSCAR files under {args.out}")
+            io.export_triples(batch[parent], args.out, write_all=args.write_all)
+        print(f"wrote POSCAR tree under {args.out}: {_count_poscars(args.out)} POSCAR files")
         if rows:
             manifest = os.path.join(args.out, "manifest.csv")
             io.write_rows_csv(rows, manifest)

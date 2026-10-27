@@ -70,8 +70,33 @@ def test_cli_triples_from_saved_pairs(tmp_path, capsys):
     assert rc == 0
     printed = capsys.readouterr().out
     assert "Li_Na_Oh+Li_Na_Oh" in printed
-    assert os.path.exists(out / "Li_Na_Oh+Li_Na_Oh+Li_Na_Oh" / "nearA_farB" / "POSCAR")
+    assert os.path.exists(out / "Li_Na_Oh+Li_Na_Oh+Li_Na_Oh" / "nn" / "nearA_farB" / "POSCAR")
     assert os.path.exists(out / "manifest.csv")
+
+
+def test_cli_triples_rejects_phase1_only_flags(tmp_path, capsys):
+    pairs_path = tmp_path / "pairs.json"
+    cp.io.save(cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")]), str(pairs_path))
+    rc = main(
+        [
+            "triples",
+            "--load-pairs",
+            str(pairs_path),
+            "--type-order",
+            "Li_Na_Oh",
+        ]
+    )
+    assert rc == 1
+    assert "--type-order" in capsys.readouterr().err
+
+
+def test_cli_csv_manifest(tmp_path, capsys):
+    structure = _write(cubic_2x2x2(), tmp_path / "bulk.vasp")
+    csv_path = tmp_path / "nested" / "pairs.csv"  # parent dir does not exist yet
+    rc = main(["pairs", structure, "-r", "Li@Na", "--csv", str(csv_path)])
+    assert rc == 0
+    assert os.path.exists(csv_path)
+    assert "combo" in csv_path.read_text(encoding="utf-8-sig").splitlines()[0]
 
 
 def test_cli_triples_skips_pairs_without_shell(tmp_path, capsys):

@@ -20,11 +20,13 @@ from __future__ import annotations
 
 from codopex import engine
 from codopex.pipeline import (
+    SHELL_INDEX,
     SHELL_LABELS,
     build_types,
     dedupe_reactions,
     load_bulk,
     shell_groups,
+    validate_shells,
 )
 from codopex.symmetry import fractional_distance_to, site_table
 from codopex.types import (
@@ -77,13 +79,14 @@ def generate_pairs(
     PairsResult
     """
     bulk = load_bulk(bulk)
+    shells = validate_shells(shells)
     reactions = dedupe_reactions(list(reactions))
     types, type_by_reaction = build_types(
         bulk, reactions, site_symprec=site_symprec, type_order=type_order
     )
     label_index = {t.label: t.index for t in types}
 
-    stats: dict = {"single_defect": {}, "jobs": [], "empty_combos": [], "dropped": 0}
+    stats: dict = {"single_defect": {}, "jobs": [], "dropped": 0}
 
     # ---- step 1: single-defect bases -------------------------------------
     # One base structure per defect type: the configuration whose dopant sits
@@ -182,11 +185,9 @@ def generate_pairs(
                 ).candidates.append(cand)
 
     # ---- step 4: shells and representatives ------------------------------
-    keep_shells = {"nn": {0}, "nnn": {0, 1}}.get(shells)
-    if keep_shells is None:
-        raise ValueError(f"shells must be 'nn' or 'nnn', got {shells!r}")
+    keep_shells = set(range(SHELL_INDEX[shells] + 1))
 
-    for key, comp in complexes.items():
+    for comp in complexes.values():
         comp.candidates.sort(key=lambda c: (c.distance, c.config_index))
         groups = shell_groups([c.distance for c in comp.candidates], dist_tol)
         for cand, g in zip(comp.candidates, groups, strict=True):
@@ -203,10 +204,7 @@ def generate_pairs(
             for g in sorted(reps)
             if g in keep_shells
         ]
-        if not comp.candidates:
-            stats["empty_combos"].append(key)
 
-    complexes = {k: v for k, v in complexes.items() if v.candidates}
     stats["n_combos"] = len(complexes)
     return PairsResult(
         bulk=bulk,

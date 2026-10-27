@@ -165,6 +165,61 @@ def test_pair_must_exist():
         cp.generate_triples(pairs2, "Li_Na_Oh+Li_Na_Oh", pair_shell="nnn")
 
 
+def test_shells_validated_before_enumeration():
+    # a typo must fail fast, not after the whole spglib run
+    with pytest.raises(ValueError, match="shells must be one of"):
+        cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")], shells="n")
+    pairs = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")])
+    with pytest.raises(ValueError, match="pair_shell must be one of"):
+        cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh", pair_shell="next")
+
+
+def test_missing_shell_representatives_are_recorded():
+    """A criterion with no candidate in the requested shell is reported."""
+    pairs = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")], shells="nnn")
+    comp = pairs.complexes["Li_Na_Oh+Li_Na_Oh"]
+    cand = comp.shells[0].candidate
+    # one candidate only -> a single d_AC shell, so the second shell is empty
+    tc = cp.TripleComplex(
+        combo="Li_Na_Oh+Li_Na_Oh+Li_Na_Oh",
+        pair=comp.combo,
+        type_c=pairs.types[0],
+        candidates=[
+            cp.TripleCandidate(
+                config_index=0,
+                site_index=cand.site_index,
+                structure=cand.structure,
+                d_ac=2.0,
+                d_bc=2.1,
+                degeneracy=1,
+            )
+        ],
+    )
+    from codopex.triples import _select_criteria
+
+    missing = _select_criteria(tc, tier=1, dist_tol=0.05)
+    assert missing == ["nearA_farB", "nearB_farA"]
+    assert tc.selection("nearA_farB") is None
+    assert tc.selection("both_nn") is not None  # documented fallback
+
+
+def test_third_restricts_the_added_dopant():
+    bulk = rocksalt_2x2x2()
+    pairs = cp.generate_pairs(bulk, [("Na", "Li"), ("Cl", "F")])
+    all_third = cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh")
+    only_f = cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh", third=[("Cl", "F")])
+    assert len(only_f.complexes) < len(all_third.complexes)
+    assert all(combo.endswith("F_Cl_Oh") for combo in only_f.complexes)
+
+
+def test_dist_tol_overrides_the_pair_tolerance():
+    pairs = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")], shells="nnn")
+    assert cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh").stats["dist_tol"] == pairs.dist_tol
+    overridden = cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh", dist_tol=0.2)
+    assert overridden.stats["dist_tol"] == 0.2
+    assert overridden.shells == "nn"
+
+
 # ---------------------------------------------------------------------------
 # deterministic output
 # ---------------------------------------------------------------------------
@@ -257,9 +312,39 @@ def test_export_round_trip(tmp_path):
         assert matcher.fit(shell.candidate.structure, Structure.from_file(path))
 
 
+def test_export_triples_separates_shell_tiers(tmp_path):
+    """nn and nnn runs must not share a folder: the criteria keep their names."""
+    pairs = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")], shells="nnn")
+    combo = "Li_Na_Oh+Li_Na_Oh+Li_Na_Oh"
+    nn = cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh", shells="nn")
+    nnn = cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh", shells="nnn")
+    cp.io.export_triples(nn, str(tmp_path))
+    cp.io.export_triples(nnn, str(tmp_path))
+    for shells in ("nn", "nnn"):
+        folder = os.path.join(str(tmp_path), combo, shells, "nearA_farB")
+        assert os.path.exists(os.path.join(folder, "POSCAR")), shells
+    # and each tier keeps its own representative
+    assert matcher.fit(
+        nn.complexes[combo].selection("nearA_farB").structure,
+        Structure.from_file(os.path.join(str(tmp_path), combo, "nn", "nearA_farB", "POSCAR")),
+    )
+
+
+def test_export_triples_write_all_counts_candidates(tmp_path):
+    pairs = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")], shells="nnn")
+    tres = cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh")
+    written = cp.io.export_triples(tres, str(tmp_path), write_all=True)
+    combo = "Li_Na_Oh+Li_Na_Oh+Li_Na_Oh"
+    work = os.path.join(str(tmp_path), f"work_{combo}")
+    assert len(os.listdir(work)) == len(tres.complexes[combo].candidates)
+    # every written path is reported, so callers can count files
+    assert str(tmp_path) in written[combo][0]
+    assert len(written[combo]) == 6 + len(tres.complexes[combo].candidates)
+
+
 def test_csv_export(tmp_path):
     res = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")])
-    path = os.path.join(str(tmp_path), "manifest.csv")
+    path = os.path.join(str(tmp_path), "nested", "manifest.csv")  # parent dir missing
     cp.io.write_rows_csv(cp.pair_rows(res), path)
     import csv
 

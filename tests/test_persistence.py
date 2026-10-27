@@ -93,6 +93,22 @@ def test_batch_save_load_round_trip(tmp_path):
         assert loaded[parent].pair == parent
 
 
+def test_save_creates_missing_directories(tmp_path):
+    """README quickstart saves into 'runs/...' before the folder exists."""
+    result = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")])
+    path = tmp_path / "runs" / "phase1" / "pairs.json.gz"
+    cp.io.save(result, str(path))
+    assert isinstance(cp.io.load(str(path)), cp.PairsResult)
+
+
+def test_triples_shells_survive_a_round_trip(tmp_path):
+    pairs = cp.generate_pairs(cubic_2x2x2(), [("Na", "Li")], shells="nnn")
+    result = cp.generate_triples(pairs, "Li_Na_Oh+Li_Na_Oh", shells="nnn")
+    path = tmp_path / "triples.json.gz"
+    cp.io.save(result, str(path))
+    assert cp.io.load(str(path)).shells == "nnn"
+
+
 def test_load_rejects_foreign_file(tmp_path):
     foreign = tmp_path / "foreign.json"
     foreign.write_text("{}")

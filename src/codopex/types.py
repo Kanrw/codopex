@@ -178,6 +178,13 @@ class TriplesResult:
     pair_shell: str  # tier ("nn"/"nnn") of the pair structure used as base
     complexes: dict[str, TripleComplex]  # triple combo label -> complex
     stats: dict = field(default_factory=dict)
+    shells: str = "nn"
+    """Tier ("nn"/"nnn") the placement criteria were evaluated in.
+
+    Recorded because the three criteria keep their names ("both_nn" included)
+    in both tiers: without it, an "nn" and an "nnn" run cannot be told apart
+    on disk.  Kept last so positional construction of older code still works.
+    """
 
 
 @dataclass

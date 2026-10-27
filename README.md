@@ -51,7 +51,7 @@ pip install -e .          # library
 pip install -e ".[dev]"   # with test/lint tooling
 ```
 
-Requires Python ≥ 3.10, `pymatgen>=2024` and `numpy`.
+Requires Python ≥ 3.10, `pymatgen>=2024`, `numpy` and `scipy`.
 
 ## Quick start
 
@@ -123,6 +123,9 @@ Reactions are written `DOPANT@HOST` (`Cu@Pb` = Cu on Pb sites) and can be
 repeated.  Without `--load-pairs`, `triples` rebuilds phase 1 from a
 structure and reactions.  `--write-all` also dumps every candidate under
 `work_{combo}/`; `--csv FILE` writes the manifest to an explicit path.
+For `triples`, `--dist-tol` sets the shell tolerance of the placement
+criteria (default: the value stored in `--load-pairs`, else 0.05), and a
+warning lists any criterion that found no candidate in the requested shell.
 
 ## What you get back
 
@@ -134,10 +137,12 @@ with full metadata:
 | `.types` | discovered `DefectType`s in canonical order (reactions in the order given, then site order within a reaction) |
 | `.bases` | one base structure per type: the configuration whose dopant sits closest to the supercell center |
 | `.complexes` | per combo: `.candidates` (every inequivalent configuration with distances, degeneracy/orbit size and structure) and `.shells` / `.selections` (the representatives) |
-| `.stats` | per-job configuration counts, skipped combos |
+| `.stats` | per-job configuration counts, skipped combos, and `missing` (criteria without a candidate in the requested shell) |
 
 Every candidate records its **degeneracy** (orbit size of the substituted
 site), which is the weight needed for thermodynamic averages.
+A `TriplesResult` also keeps `.shells`, the tier its criteria were
+evaluated in.
 
 ### Exporting for VASP runs
 
@@ -149,10 +154,12 @@ cp.io.write_rows_csv(cp.pair_rows(pairs), "pairs.csv")
 
 The export mirrors the layout of the original notebooks:
 `single_defect/{type}/POSCAR`, `{combo}/{nn|nnn}/POSCAR`,
-`{combo}/{criterion}/POSCAR`, with an unindexed `POSCAR` copy per
+`{combo}/{nn|nnn}/{criterion}/POSCAR`, with an unindexed `POSCAR` copy per
 representative and all candidates under `work_{combo}/` when
-`write_all=True`.  POSCAR files are written species-grouped by atomic
-number (VASP convention).
+`write_all=True`.  The criterion folder (`nearA_farB`, `nearB_farA`,
+`both_nn`) sits under the tier it was evaluated in, so `nn` and `nnn` runs
+never overwrite each other.  POSCAR files are written species-grouped by
+atomic number (VASP convention).
 
 ## How it works
 
@@ -176,7 +183,9 @@ number (VASP convention).
 * **Triples** — a triple whose sorted types are `(i, j, c)` is generated
   from the representative of its *canonical parent pair* `(i, j)`.  The
   placement criteria of the original workflow select one representative per
-  criterion; all configurations are kept in `.candidates` with d_AC/d_BC.
+  criterion; all configurations are kept in `.candidates` with d_AC/d_BC.  A
+  criterion with no candidate in the requested shell reports no
+  representative and is counted in `.stats["missing"]`.
 
 A/B convention: A is the pair's base-type dopant, B the added one; C is
 the third dopant.  Site order is never changed: site `i` of any returned

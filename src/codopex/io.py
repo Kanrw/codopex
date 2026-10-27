@@ -12,8 +12,9 @@ pre-processing (mirroring the original notebooks):
       {combo}/{shell}/POSCAR                 # unindexed copy of the same
       work_{combo}/POSCAR{idx}               # (write_all=True) all candidates
 
-where ``shell`` is "nn" or "nnn" for pairs and the criterion name
-("nearA_farB", ...) for triples.
+where ``shell`` is "nn" or "nnn" for pairs and ``{shells}/{criterion}``
+("nn" or "nnn", then "nearA_farB", ...) for triples: the criteria keep their
+names in both tiers, so the tier has to be part of the path.
 
 POSCAR files are written with species grouped by atomic number (VASP
 convention of the original DefectMaker output).  Structures returned by the
@@ -101,12 +102,16 @@ def export_pairs(
             p1 = write_structure(cand.structure, os.path.join(folder, f"POSCAR{cand.config_index}"))
             p2 = write_structure(cand.structure, os.path.join(folder, "POSCAR"))
             paths.extend([p1, p2])
-        written[combo] = paths
         if write_all:
             work = os.path.join(out_root, f"work_{combo}")
             os.makedirs(work, exist_ok=True)
             for cand in comp.candidates:
-                write_structure(cand.structure, os.path.join(work, f"POSCAR{cand.config_index}"))
+                paths.append(
+                    write_structure(
+                        cand.structure, os.path.join(work, f"POSCAR{cand.config_index}")
+                    )
+                )
+        written[combo] = paths
     return written
 
 
@@ -125,17 +130,21 @@ def export_triples(
             cand = sel.candidate
             if cand is None:
                 continue
-            folder = os.path.join(out_root, combo, sel.criterion)
+            folder = os.path.join(out_root, combo, result.shells, sel.criterion)
             os.makedirs(folder, exist_ok=True)
             p1 = write_structure(cand.structure, os.path.join(folder, f"POSCAR{cand.config_index}"))
             p2 = write_structure(cand.structure, os.path.join(folder, "POSCAR"))
             paths.extend([p1, p2])
-        written[combo] = paths
         if write_all:
             work = os.path.join(out_root, f"work_{combo}")
             os.makedirs(work, exist_ok=True)
             for cand in tc.candidates:
-                write_structure(cand.structure, os.path.join(work, f"POSCAR{cand.config_index}"))
+                paths.append(
+                    write_structure(
+                        cand.structure, os.path.join(work, f"POSCAR{cand.config_index}")
+                    )
+                )
+        written[combo] = paths
     return written
 
 
@@ -143,6 +152,7 @@ def write_rows_csv(rows: Sequence[dict], path: str) -> str:
     """Write manifest rows (list of dicts) as UTF-8-BOM CSV (Excel friendly)."""
     if not rows:
         raise ValueError("no rows to write")
+    os.makedirs(os.path.dirname(str(path)) or ".", exist_ok=True)
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()
@@ -166,14 +176,6 @@ def _index_of(items: Sequence, obj) -> int:
         if item is obj:
             return i
     raise ValueError("object is not part of the sequence (internal error)")
-
-
-def _encode_structure(structure: Structure) -> dict:
-    return structure.as_dict()
-
-
-def _decode_structure(data: dict) -> Structure:
-    return Structure.from_dict(data)
 
 
 def _encode_type(t: DefectType) -> dict:
@@ -200,12 +202,12 @@ def _decode_type(d: dict) -> DefectType:
 
 def _encode_pairs(result: PairsResult) -> dict:
     return {
-        "bulk": _encode_structure(result.bulk),
+        "bulk": result.bulk.as_dict(),
         "reactions": [list(r) for r in result.reactions],
         "types": [_encode_type(t) for t in result.types],
         "bases": {
             label: {
-                "structure": _encode_structure(base.structure),
+                "structure": base.structure.as_dict(),
                 "dopant_site": base.dopant_site,
                 "distance_to_center": base.distance_to_center,
                 "degeneracy": base.degeneracy,
@@ -217,13 +219,13 @@ def _encode_pairs(result: PairsResult) -> dict:
                 "combo": comp.combo,
                 "type_a": comp.type_a.label,
                 "type_b": comp.type_b.label,
-                "base_structure": _encode_structure(comp.base_structure),
+                "base_structure": comp.base_structure.as_dict(),
                 "base_dopant_site": comp.base_dopant_site,
                 "candidates": [
                     {
                         "config_index": cand.config_index,
                         "site_index": cand.site_index,
-                        "structure": _encode_structure(cand.structure),
+                        "structure": cand.structure.as_dict(),
                         "distance": cand.distance,
                         "shell": cand.shell,
                         "degeneracy": cand.degeneracy,
@@ -256,7 +258,7 @@ def _decode_pairs(data: dict) -> PairsResult:
 
     bases = {
         label: SingleDefectBase(
-            structure=_decode_structure(b["structure"]),
+            structure=Structure.from_dict(b["structure"]),
             dopant_site=b["dopant_site"],
             distance_to_center=b["distance_to_center"],
             degeneracy=b["degeneracy"],
@@ -270,7 +272,7 @@ def _decode_pairs(data: dict) -> PairsResult:
             PairCandidate(
                 config_index=cd["config_index"],
                 site_index=cd["site_index"],
-                structure=_decode_structure(cd["structure"]),
+                structure=Structure.from_dict(cd["structure"]),
                 distance=cd["distance"],
                 shell=cd["shell"],
                 degeneracy=cd["degeneracy"],
@@ -289,7 +291,7 @@ def _decode_pairs(data: dict) -> PairsResult:
             combo=c["combo"],
             type_a=by_label[c["type_a"]],
             type_b=by_label[c["type_b"]],
-            base_structure=_decode_structure(c["base_structure"]),
+            base_structure=Structure.from_dict(c["base_structure"]),
             base_dopant_site=c["base_dopant_site"],
             candidates=candidates,
             shells=shells,
@@ -304,7 +306,7 @@ def _decode_pairs(data: dict) -> PairsResult:
     ]
 
     return PairsResult(
-        bulk=_decode_structure(data["bulk"]),
+        bulk=Structure.from_dict(data["bulk"]),
         reactions=[tuple(r) for r in data["reactions"]],
         types=types,
         bases=bases,
@@ -319,6 +321,7 @@ def _encode_triples(result: TriplesResult, include_pairs: bool = True) -> dict:
     data = {
         "pair": result.pair,
         "pair_shell": result.pair_shell,
+        "shells": result.shells,
         "complexes": {
             key: {
                 "combo": tc.combo,
@@ -328,7 +331,7 @@ def _encode_triples(result: TriplesResult, include_pairs: bool = True) -> dict:
                     {
                         "config_index": cand.config_index,
                         "site_index": cand.site_index,
-                        "structure": _encode_structure(cand.structure),
+                        "structure": cand.structure.as_dict(),
                         "d_ac": cand.d_ac,
                         "d_bc": cand.d_bc,
                         "degeneracy": cand.degeneracy,
@@ -367,7 +370,7 @@ def _decode_triples(data: dict, pairs: PairsResult | None = None) -> TriplesResu
             TripleCandidate(
                 config_index=cd["config_index"],
                 site_index=cd["site_index"],
-                structure=_decode_structure(cd["structure"]),
+                structure=Structure.from_dict(cd["structure"]),
                 d_ac=cd["d_ac"],
                 d_bc=cd["d_bc"],
                 degeneracy=cd["degeneracy"],
@@ -395,6 +398,9 @@ def _decode_triples(data: dict, pairs: PairsResult | None = None) -> TriplesResu
         pair_shell=data["pair_shell"],
         complexes=complexes,
         stats=data["stats"],
+        # files written before the field existed carry no "shells": they were
+        # all first-shell runs
+        shells=data.get("shells", "nn"),
     )
 
 
@@ -427,7 +433,7 @@ def save(result: Result, path: str) -> str:
     The file is gzip-compressed when ``path`` ends in ``.gz``.  Structures are
     stored with pymatgen's own serialization, so a loaded result is fully
     equivalent to the in-memory one (including all candidates, degeneracies
-    and stats).  Returns the path.
+    and stats).  Missing parent directories are created.  Returns the path.
     """
     if isinstance(result, PairsResult):
         kind, payload = "pairs", _encode_pairs(result)
@@ -447,6 +453,7 @@ def save(result: Result, path: str) -> str:
         "kind": kind,
         "data": payload,
     }
+    os.makedirs(os.path.dirname(str(path)) or ".", exist_ok=True)
     with _open_text(path, "w") as f:
         json.dump(document, f)
     return path

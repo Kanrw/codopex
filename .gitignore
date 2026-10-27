@@ -25,5 +25,8 @@ htmlcov/
 .vscode/
 *.swp
 
+# local agent workspace (project memory, session state)
+.workbuddy/
+
 # local claude settings (permissions) stay on this machine
 .claude/

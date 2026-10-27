@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `TriplesResult.shells` records the tier ("nn"/"nnn") the placement
+  criteria were evaluated in, and is saved/loaded with the result.  Saved
+  files without the key load as `"nn"`.
+- `codopex.triples.generate_triples(..., dist_tol=...)` (also
+  `generate_all_triples`) overrides the shell tolerance used by the placement
+  criteria; `None` (default) keeps `pairs_result.dist_tol`.
+- `TriplesResult.stats["missing"]` counts the criteria that had no candidate
+  in the requested shell; `codopex triples` also prints a warning for them.
+
+### Changed
+
+- Triple export layout is now `{combo}/{shells}/{criterion}/POSCAR...`
+  (e.g. `.../nn/nearA_farB/POSCAR`).  The criteria keep their names in both
+  tiers, so an `nn` and an `nnn` run into the same `--out` used to overwrite
+  each other's representative `POSCAR`; they now write side by side.
+- `--write-all` output is counted correctly: the CLI reports the number of
+  POSCAR files actually on disk (bases, representatives and `work_*`).
+- `codopex triples --dist-tol` now takes effect with `--load-pairs`
+  (previously it was silently ignored).  `--type-order` and `--site-symprec`
+  only apply when phase 1 is rebuilt and now raise instead of being ignored.
+- `export_pairs` / `export_triples` also return the paths written under
+  `work_{combo}/` when `write_all=True`.
+- `io.save()` and `io.write_rows_csv()` create missing parent directories, so
+  the README quickstart (`cp.io.save(pairs, "runs/pairs.json.gz")`) works.
+
+### Removed
+
+- Dead "empty combo" bookkeeping in the pair and triple pipelines
+  (`stats["empty_combos"]`, `stats["empty"]` were always empty lists).
+
+### Fixed
+
+- A typo in `shells` / `pair_shell` now fails before any enumeration instead
+  of after it, with the same message for all call sites.
+
 ## [0.3.1] - 2026-10-16
 
 ### Added

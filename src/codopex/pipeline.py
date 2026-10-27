@@ -19,8 +19,17 @@ from codopex.symmetry import site_table
 from codopex.types import DefectType, Reaction
 
 SHELL_LABELS = {0: "nn", 1: "nnn"}  # first and second distance shell
+SHELL_INDEX = {label: index for index, label in SHELL_LABELS.items()}
+"""Inverse of :data:`SHELL_LABELS`: shell name -> 0-based shell index."""
 
 SiteKey = tuple[str, str, str]  # (host element, site symmetry, wyckoff tag)
+
+
+def validate_shells(shell: str, name: str = "shells") -> str:
+    """Return ``shell`` when it is a known shell label, else raise ``ValueError``."""
+    if shell not in SHELL_INDEX:
+        raise ValueError(f"{name} must be one of {sorted(SHELL_INDEX)}, got {shell!r}")
+    return shell
 
 
 def load_bulk(bulk) -> Structure:

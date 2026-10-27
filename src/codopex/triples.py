@@ -33,7 +33,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from codopex import engine
-from codopex.pipeline import SHELL_LABELS, shell_groups
+from codopex.pipeline import SHELL_INDEX, shell_groups, validate_shells
 from codopex.types import (
     AllTriplesResult,
     PairsResult,
@@ -51,6 +51,7 @@ def generate_triples(
     pair_shell: str = "nn",
     third: list | None = None,
     enum_symprec: float = 1e-3,
+    dist_tol: float | None = None,
 ) -> TriplesResult:
     """Generate triple complexes on top of one defect-pair combo.
 
@@ -73,21 +74,23 @@ def generate_triples(
         reactions used in the pairs run.
     enum_symprec : float
         spglib symmetry tolerance for configuration enumeration.
+    dist_tol : optional float
+        Distance-shell tolerance (Angstrom) used by the placement criteria.
+        Default: the tolerance stored in ``pairs_result``.
 
     Returns
     -------
     TriplesResult
     """
-    if shells not in SHELL_LABELS.values():
-        raise ValueError(f"shells must be 'nn' or 'nnn', got {shells!r}")
-    if pair_shell not in SHELL_LABELS.values():
-        raise ValueError(f"pair_shell must be 'nn' or 'nnn', got {pair_shell!r}")
+    shells = validate_shells(shells)
+    pair_shell = validate_shells(pair_shell, "pair_shell")
 
     types = pairs_result.types
     label_index = {t.label: t.index for t in types}
     reactions = pairs_result.reactions
     site_type_maps = pairs_result.site_type_maps
-    dist_tol = pairs_result.dist_tol
+    if dist_tol is None:
+        dist_tol = pairs_result.dist_tol
 
     if pair not in pairs_result.complexes:
         raise ValueError(
@@ -122,9 +125,9 @@ def generate_triples(
         "pair": pair,
         "pair_shell": pair_shell,
         "shells": shells,
+        "dist_tol": dist_tol,
         "jobs": [],
         "dropped": 0,
-        "empty": [],
     }
 
     complexes: dict[str, TripleComplex] = {}
@@ -163,14 +166,12 @@ def generate_triples(
             ).candidates.append(cand)
 
     # ---- criteria selections ------------------------------------------------
-    tier = {"nn": 0, "nnn": 1}[shells]
+    tier = SHELL_INDEX[shells]
+    missing: dict[str, int] = {}
     for tc in complexes.values():
-        _select_criteria(tc, tier, dist_tol)
-
-    for key, tc in complexes.items():
-        if not tc.candidates:
-            stats["empty"].append(key)
-    complexes = {k: v for k, v in complexes.items() if v.candidates}
+        for criterion in _select_criteria(tc, tier, dist_tol):
+            missing[criterion] = missing.get(criterion, 0) + 1
+    stats["missing"] = missing
     stats["n_triples"] = len(complexes)
     return TriplesResult(
         pairs=pairs_result,
@@ -178,6 +179,7 @@ def generate_triples(
         pair_shell=pair_shell,
         complexes=complexes,
         stats=stats,
+        shells=shells,
     )
 
 
@@ -188,6 +190,7 @@ def generate_all_triples(
     pair_shell: str = "nn",
     third: list | None = None,
     enum_symprec: float = 1e-3,
+    dist_tol: float | None = None,
 ) -> AllTriplesResult:
     """Generate triple complexes for many parent pairs in one call.
 
@@ -204,7 +207,7 @@ def generate_all_triples(
     pairs : optional sequence of str
         Parent pair combos to expand.  Default: all combos in
         ``pairs_result``, in sorted order.
-    shells, pair_shell, third, enum_symprec
+    shells, pair_shell, third, enum_symprec, dist_tol
         Forwarded to :func:`generate_triples` for every parent.
 
     Returns
@@ -213,19 +216,17 @@ def generate_all_triples(
         ``results`` maps parent pair label -> :class:`TriplesResult`;
         ``skipped`` lists the parents without the requested shell.
     """
-    if shells not in SHELL_LABELS.values():
-        raise ValueError(f"shells must be 'nn' or 'nnn', got {shells!r}")
-    if pair_shell not in SHELL_LABELS.values():
-        raise ValueError(f"pair_shell must be 'nn' or 'nnn', got {pair_shell!r}")
+    shells = validate_shells(shells)
+    pair_shell = validate_shells(pair_shell, "pair_shell")
 
     if pairs is None:
         requested = sorted(pairs_result.complexes)
     else:
         requested = list(pairs)
-        missing = [p for p in requested if p not in pairs_result.complexes]
-        if missing:
+        unknown = [p for p in requested if p not in pairs_result.complexes]
+        if unknown:
             raise ValueError(
-                f"pairs not among generated combos: {missing}. "
+                f"pairs not among generated combos: {unknown}. "
                 f"Available: {sorted(pairs_result.complexes)}"
             )
 
@@ -243,15 +244,19 @@ def generate_all_triples(
             pair_shell=pair_shell,
             third=third,
             enum_symprec=enum_symprec,
+            dist_tol=dist_tol,
         )
     return AllTriplesResult(results=results, skipped=skipped)
 
 
-def _select_criteria(tc: TripleComplex, tier: int, dist_tol: float) -> None:
+def _select_criteria(tc: TripleComplex, tier: int, dist_tol: float) -> list[str]:
     """Apply the three placement criteria to a triple complex.
 
     ``tier`` selects the distance shell used by the criteria (0 = first
-    shell "nn", 1 = second shell "nnn").
+    shell "nn", 1 = second shell "nnn").  Returns the names of the criteria
+    for which no candidate sits in that shell (their selection stays
+    ``None``); ``both_nn`` falls back to the overall mean-distance minimum
+    instead, so it is never reported.
     """
     cands = tc.candidates
     # deterministic: candidates stay in enumeration order; shells are
@@ -283,6 +288,11 @@ def _select_criteria(tc: TripleComplex, tier: int, dist_tol: float) -> None:
         # notebook fallback: when nothing is NN to both, take the overall
         # minimum mean distance
         TripleSelection("both_nn", min(both, key=avg) if both else min(cands, key=avg)),
+    ]
+    return [
+        name
+        for name, selection in zip(("nearA_farB", "nearB_farA"), (near_a, near_b), strict=True)
+        if not selection
     ]
 
 
