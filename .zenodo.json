@@ -1,0 +1,33 @@
+{
+  "title": "codopex: Symmetry-inequivalent co-doping defect-complex generation",
+  "upload_type": "software",
+  "description": "Generation of symmetry-inequivalent co-doping defect pairs and higher-order defect complexes in a host supercell using pymatgen/spglib symmetry analysis, with POSCAR export, JSON persistence and a command-line interface. The repository also ships an agent skill that guides users through the physically guided co-doping workflow of the accompanying paper.",
+  "creators": [
+    {
+      "name": "Wang, Ming-Long",
+      "affiliation": "South China University of Technology",
+      "orcid": "0009-0008-6627-158X"
+    },
+    {
+      "name": "Yao, Yao",
+      "affiliation": "South China University of Technology"
+    },
+    {
+      "name": "He, Chang-Chun",
+      "affiliation": "South China University of Technology"
+    },
+    {
+      "name": "Zhao, Yu-Jun",
+      "affiliation": "South China University of Technology"
+    }
+  ],
+  "license": "MIT",
+  "keywords": ["point defects", "co-doping", "defect complexes", "first-principles", "symmetry enumeration"],
+  "related_identifiers": [
+    {
+      "identifier": "10.1103/s1fk-dpbn",
+      "relation": "isSupplementTo",
+      "scheme": "doi"
+    }
+  ]
+}

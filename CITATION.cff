@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use codopex in your research, please cite the accompanying paper (see preferred-citation)."
-title: "codopex: symmetry-inequivalent co-doping defect-complex generation"
+title: "codopex: Symmetry-inequivalent co-doping defect-complex generation"
 abstract: >-
   codopex generates symmetry-inequivalent substitutional co-doping defect
   complexes (pairs and triples) in a host supercell, using pure
@@ -9,6 +9,7 @@ authors:
   - family-names: Wang
     given-names: Ming-Long
     affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
+    orcid: "https://orcid.org/0009-0008-6627-158X"
   - family-names: Yao
     given-names: Yao
     affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
@@ -18,11 +19,12 @@ authors:
   - family-names: Zhao
     given-names: Yu-Jun
     affiliation: "Department of Physics, South China University of Technology, Guangzhou 510640, China"
-version: 0.3.1
-date-released: 2026-10-16
+version: "0.4.0"
+date-released: 2026-11-06
 license: MIT
 repository-code: "https://github.com/Kanrw/codopex"
 url: "https://github.com/Kanrw/codopex"
+# doi: filled after Zenodo has archived the v0.4.0 release
 keywords:
   - defects
   - doping
