@@ -4,6 +4,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/Kanrw/codopex)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24011796.svg)](https://doi.org/10.5281/zenodo.24011796)
 
 Generate symmetry-inequivalent co-doping defect-pair and higher-order
 complexes in a host supercell.
